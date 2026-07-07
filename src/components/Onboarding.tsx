@@ -7,7 +7,7 @@ import { Auth } from './Auth'
 import { LinkPartiful } from './LinkPartiful'
 import type { User } from '@supabase/supabase-js'
 
-type Step = 'auth' | 'link_partiful' | 'choose' | 'create' | 'join'
+type Step = 'auth' | 'link_partiful' | 'choose' | 'create' | 'join' | 'created'
 
 export function Onboarding() {
   const [step, setStep] = useState<Step>('auth')
@@ -127,7 +127,7 @@ export function Onboarding() {
       })
 
       setSession(data.event, data.host)
-      await fetchGuests()
+      setStep('created')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong')
       setLoading(false)
@@ -256,6 +256,42 @@ export function Onboarding() {
             {loading ? 'Creating...' : 'Create & sync guests'}
           </button>
         </form>
+      </div>
+    )
+  }
+
+  if (step === 'created') {
+    return (
+      <div className="min-h-screen bg-[var(--color-bg)] flex flex-col items-center justify-center p-4">
+        <div className="text-4xl mb-4">🎉</div>
+        <h1 className="text-2xl font-semibold mb-2">Event created!</h1>
+        <p className="text-[var(--color-text-muted)] mb-6 text-center">
+          Share this code with your co-hosts
+        </p>
+        
+        <div className="bg-[var(--color-bg-secondary)] border border-[var(--color-border)] rounded-xl p-6 mb-6">
+          <p className="text-3xl font-mono tracking-widest text-center select-all">
+            {createdAccessCode}
+          </p>
+        </div>
+        
+        <button
+          onClick={() => {
+            navigator.clipboard.writeText(createdAccessCode)
+          }}
+          className="mb-4 px-4 py-2 bg-[var(--color-bg-secondary)] border border-[var(--color-border)] rounded-lg text-sm hover:bg-[var(--color-bg-tertiary)] transition-colors"
+        >
+          Copy code
+        </button>
+        
+        <button
+          onClick={async () => {
+            await fetchGuests()
+          }}
+          className="px-6 py-3 bg-[var(--color-accent)] text-white rounded-lg font-medium hover:opacity-90 transition-opacity"
+        >
+          View guest list →
+        </button>
       </div>
     )
   }
