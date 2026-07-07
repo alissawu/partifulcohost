@@ -144,7 +144,7 @@ export function LinkPartiful({ onComplete, isNewSignup, pendingName }: LinkParti
       </h1>
       <p className="text-[var(--color-text-muted)] mb-8 text-center max-w-md">
         {isNewSignup 
-          ? "Link your Partiful event to verify your account"
+          ? "Link your event, then verify you're a host"
           : "We'll verify you're a host and sync the guest list with real names"
         }
       </p>
