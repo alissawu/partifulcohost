@@ -7,14 +7,12 @@ import { Auth } from './Auth'
 import { LinkPartiful } from './LinkPartiful'
 import type { User } from '@supabase/supabase-js'
 
-type Step = 'auth' | 'link_partiful' | 'choose' | 'create' | 'join' | 'created'
+type Step = 'auth' | 'link_partiful' | 'choose' | 'join' | 'created'
 
 export function Onboarding() {
   const [step, setStep] = useState<Step>('auth')
   const [user, setUser] = useState<User | null>(null)
   const [partifulLinked, setPartifulLinked] = useState(false)
-  const [eventName, setEventName] = useState('')
-  const [partifulUrl, setPartifulUrl] = useState('')
   const [accessCode, setAccessCode] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -79,62 +77,46 @@ export function Onboarding() {
     }
   }
 
-  const handlePartifulLinked = (partifulUserId: string) => {
-    setPartifulLinked(true)
-    setStep('choose')
-  }
-
-  const extractEventId = (url: string): string | null => {
-    const match = url.match(/partiful\.com\/e\/([a-zA-Z0-9]+)/)
-    return match ? match[1] : null
-  }
-
-  const handleCreate = async (e: React.FormEvent) => {
-    e.preventDefault()
+  // Combined handler: link Partiful + create event + sync guests with token
+  const handlePartifulComplete = async (data: { partifulUserId: string; eventId: string; token: string }) => {
     if (!user) return
-    setLoading(true)
-    setError('')
-
-    const partifulEventId = extractEventId(partifulUrl)
-    if (!partifulEventId) {
-      setError('Invalid Partiful URL. Should be like partiful.com/e/abc123')
-      setLoading(false)
-      return
-    }
-
+    setPartifulLinked(true)
+    
     try {
+      // Create the event
       const res = await fetch('/api/events', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          partiful_event_id: partifulEventId,
-          name: eventName,
+          partiful_event_id: data.eventId,
+          name: 'My Event', // Default name, can be edited later
           user_id: user.id,
           host_name: user.user_metadata?.name || user.email?.split('@')[0] || 'Host',
         }),
       })
 
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error || 'Failed to create event')
+      const eventData = await res.json()
+      if (!res.ok) throw new Error(eventData.error || 'Failed to create event')
 
-      // Save the access code to show
-      setCreatedAccessCode(data.access_code)
+      setCreatedAccessCode(eventData.access_code)
 
-      // Sync guests from Partiful
+      // Sync guests using the fresh token for full names
       await fetch('/api/sync/partiful', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          event_id: data.event.id,
-          partiful_event_id: partifulEventId,
+          event_id: eventData.event.id,
+          partiful_event_id: data.eventId,
+          token: data.token, // Pass the token for Firestore access
         }),
       })
 
-      setSession(data.event, data.host)
+      setSession(eventData.event, eventData.host)
       setStep('created')
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Something went wrong')
-      setLoading(false)
+      console.error('Error creating event:', err)
+      setError(err instanceof Error ? err.message : 'Failed to create event')
+      setStep('choose')
     }
   }
 
@@ -184,7 +166,7 @@ export function Onboarding() {
   }
 
   if (step === 'link_partiful') {
-    return <LinkPartiful onLinked={handlePartifulLinked} />
+    return <LinkPartiful onComplete={handlePartifulComplete} />
   }
 
   if (step === 'choose') {
@@ -195,10 +177,10 @@ export function Onboarding() {
         
         <div className="flex flex-col gap-3 w-full max-w-sm">
           <button
-            onClick={() => setStep('create')}
+            onClick={() => setStep('link_partiful')}
             className="w-full py-4 bg-[var(--color-accent)] text-white rounded-lg font-medium hover:opacity-90 transition-opacity"
           >
-            Create new event
+            Add new event
           </button>
           <button
             onClick={() => setStep('join')}
@@ -213,53 +195,8 @@ export function Onboarding() {
             Sign out
           </button>
         </div>
-      </div>
-    )
-  }
-
-  if (step === 'create') {
-    return (
-      <div className="min-h-screen bg-[var(--color-bg)] flex flex-col items-center justify-center p-4">
-        <button
-          onClick={() => setStep('choose')}
-          className="absolute top-4 left-4 text-[var(--color-text-muted)] hover:text-[var(--color-text)]"
-        >
-          ← Back
-        </button>
         
-        <h1 className="text-2xl font-semibold mb-8">Create event</h1>
-        
-        <form onSubmit={handleCreate} className="w-full max-w-sm space-y-4">
-          <input
-            type="text"
-            placeholder="Event name"
-            value={eventName}
-            onChange={(e) => setEventName(e.target.value)}
-            required
-            className="w-full px-4 py-3 bg-[var(--color-bg-secondary)] border border-[var(--color-border)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)]"
-          />
-          <input
-            type="text"
-            placeholder="Partiful event URL"
-            value={partifulUrl}
-            onChange={(e) => setPartifulUrl(e.target.value)}
-            required
-            className="w-full px-4 py-3 bg-[var(--color-bg-secondary)] border border-[var(--color-border)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)]"
-          />
-          <p className="text-xs text-[var(--color-text-muted)]">
-            Paste your Partiful event link, like partiful.com/e/abc123
-          </p>
-
-          {error && <p className="text-red-500 text-sm">{error}</p>}
-
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full py-3 bg-[var(--color-accent)] text-white rounded-lg font-medium hover:opacity-90 transition-opacity disabled:opacity-50"
-          >
-            {loading ? 'Creating...' : 'Create & sync guests'}
-          </button>
-        </form>
+        {error && <p className="text-red-500 text-sm mt-4">{error}</p>}
       </div>
     )
   }

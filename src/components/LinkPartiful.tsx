@@ -4,15 +4,20 @@ import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 
 interface LinkPartifulProps {
-  onLinked: (partifulUserId: string) => void
-  onSkip?: () => void
+  onComplete: (data: { partifulUserId: string; eventId: string; token: string }) => void
 }
 
-export function LinkPartiful({ onLinked, onSkip }: LinkPartifulProps) {
+export function LinkPartiful({ onComplete }: LinkPartifulProps) {
+  const [eventUrl, setEventUrl] = useState('')
   const [checking, setChecking] = useState(false)
   const [error, setError] = useState('')
   const [copied, setCopied] = useState(false)
   const supabase = createClient()
+
+  const extractEventId = (url: string): string | null => {
+    const match = url.match(/partiful\.com\/e\/([a-zA-Z0-9]+)/)
+    return match ? match[1] : null
+  }
 
   // The console command that extracts the token and sends it to us
   const getConsoleCommand = () => {
@@ -45,7 +50,17 @@ export function LinkPartiful({ onLinked, onSkip }: LinkPartifulProps) {
           return
         }
 
-        // Send token to our API
+        // Get event ID from stored URL
+        const storedEventUrl = localStorage.getItem('cosign_pending_event_url')
+        const eventId = storedEventUrl ? extractEventId(storedEventUrl) : null
+        
+        if (!eventId) {
+          setError('No event URL found. Please enter your Partiful event URL and try again.')
+          setChecking(false)
+          return
+        }
+
+        // Send token to our API to link account
         try {
           const res = await fetch('/api/auth/partiful', {
             method: 'POST',
@@ -61,7 +76,12 @@ export function LinkPartiful({ onLinked, onSkip }: LinkPartifulProps) {
             throw new Error(data.error || 'Failed to link account')
           }
 
-          onLinked(data.partiful_user_id)
+          localStorage.removeItem('cosign_pending_event_url')
+          onComplete({ 
+            partifulUserId: data.partiful_user_id, 
+            eventId,
+            token 
+          })
         } catch (err) {
           setError(err instanceof Error ? err.message : 'Failed to link account')
         } finally {
@@ -71,7 +91,21 @@ export function LinkPartiful({ onLinked, onSkip }: LinkPartifulProps) {
     }
 
     checkHash()
-  }, [supabase.auth, onLinked])
+  }, [supabase.auth, onComplete])
+
+  const handleContinue = () => {
+    const eventId = extractEventId(eventUrl)
+    if (!eventId) {
+      setError('Invalid Partiful URL. Should look like partiful.com/e/abc123')
+      return
+    }
+    // Store event URL for after redirect
+    localStorage.setItem('cosign_pending_event_url', eventUrl)
+    setError('')
+  }
+
+  const eventId = extractEventId(eventUrl)
+  const showInstructions = eventId !== null
 
   if (checking) {
     return (
@@ -83,54 +117,73 @@ export function LinkPartiful({ onLinked, onSkip }: LinkPartifulProps) {
 
   return (
     <div className="min-h-screen bg-[var(--color-bg)] flex flex-col items-center justify-center p-4">
-      <h1 className="text-2xl font-semibold mb-2">Link your Partiful</h1>
+      <h1 className="text-2xl font-semibold mb-2">Connect your event</h1>
       <p className="text-[var(--color-text-muted)] mb-8 text-center max-w-md">
-        This verifies you're a real Partiful host. You only need to do this once.
+        We'll verify you're a host and sync the guest list with real names
       </p>
 
       <div className="w-full max-w-md space-y-6">
+        {/* Step 1: Event URL */}
         <div className="space-y-2">
-          <p className="font-medium">1. Open partiful.com and make sure you're logged in</p>
-        </div>
-
-        <div className="space-y-2">
-          <p className="font-medium">2. Open the browser console</p>
-          <p className="text-sm text-[var(--color-text-muted)]">
-            Mac: Cmd + Option + J<br />
-            Windows: Ctrl + Shift + J
+          <p className="font-medium">1. Paste your Partiful event URL</p>
+          <input
+            type="text"
+            placeholder="partiful.com/e/abc123"
+            value={eventUrl}
+            onChange={(e) => {
+              setEventUrl(e.target.value)
+              setError('')
+            }}
+            className="w-full px-4 py-3 bg-[var(--color-bg-secondary)] border border-[var(--color-border)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)]"
+          />
+          <p className="text-xs text-[var(--color-text-muted)]">
+            You can add more events later
           </p>
         </div>
 
-        <div className="space-y-2">
-          <p className="font-medium">3. Paste this command and press Enter</p>
-          <div className="relative">
-            <pre className="bg-[var(--color-bg-secondary)] border border-[var(--color-border)] rounded-lg p-3 text-xs overflow-x-auto whitespace-pre-wrap break-all">
-              {getConsoleCommand()}
-            </pre>
-            <button
-              onClick={copyCommand}
-              className="absolute top-2 right-2 px-3 py-1 bg-[var(--color-accent)] text-white text-xs rounded hover:opacity-90"
-            >
-              {copied ? 'Copied!' : 'Copy'}
-            </button>
-          </div>
-        </div>
+        {showInstructions && (
+          <>
+            {/* Step 2: Open Partiful */}
+            <div className="space-y-2">
+              <p className="font-medium">2. Open partiful.com and make sure you're logged in</p>
+            </div>
 
-        <p className="text-sm text-[var(--color-text-muted)] text-center">
-          This will redirect you back here with your Partiful account linked.
-        </p>
+            {/* Step 3: Console */}
+            <div className="space-y-2">
+              <p className="font-medium">3. Open the browser console</p>
+              <p className="text-sm text-[var(--color-text-muted)]">
+                Mac: Cmd + Option + J &nbsp;•&nbsp; Windows: Ctrl + Shift + J
+              </p>
+            </div>
+
+            {/* Step 4: Paste command */}
+            <div className="space-y-2">
+              <p className="font-medium">4. Paste this and press Enter</p>
+              <div className="relative">
+                <pre className="bg-[var(--color-bg-secondary)] border border-[var(--color-border)] rounded-lg p-3 text-xs overflow-x-auto whitespace-pre-wrap break-all max-h-24">
+                  {getConsoleCommand()}
+                </pre>
+                <button
+                  onClick={() => {
+                    handleContinue()
+                    if (extractEventId(eventUrl)) {
+                      copyCommand()
+                    }
+                  }}
+                  className="absolute top-2 right-2 px-3 py-1 bg-[var(--color-accent)] text-white text-xs rounded hover:opacity-90"
+                >
+                  {copied ? 'Copied!' : 'Copy'}
+                </button>
+              </div>
+              <p className="text-sm text-[var(--color-text-muted)]">
+                This will redirect you back here and sync your guest list
+              </p>
+            </div>
+          </>
+        )}
 
         {error && (
           <p className="text-red-500 text-sm text-center">{error}</p>
-        )}
-
-        {onSkip && (
-          <button
-            onClick={onSkip}
-            className="w-full text-sm text-[var(--color-text-muted)] hover:text-[var(--color-text)]"
-          >
-            Skip for now
-          </button>
         )}
       </div>
     </div>
