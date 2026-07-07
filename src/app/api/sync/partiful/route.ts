@@ -50,7 +50,9 @@ function extractValue(val: FirestoreValue | undefined): unknown {
   return null
 }
 
-function normalizeStatus(status: string): string {
+function normalizeStatus(status: string | null | undefined): string {
+  if (!status) return 'invited' // No status = invited but not RSVPed
+  
   const s = status.toUpperCase()
   // Exact matches first
   if (s === 'APPROVED' || s === 'GOING') return 'approved'
@@ -69,7 +71,7 @@ function normalizeStatus(status: string): string {
   if (s.includes('CANT') || s.includes('NOT_GOING')) return 'cant_go'
   
   console.warn('Unknown Partiful status:', status)
-  return 'pending'
+  return 'invited' // Default to invited if unknown
 }
 
 export async function POST(request: NextRequest) {
@@ -80,10 +82,60 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Missing event_id or partiful_event_id' }, { status: 400 })
     }
 
-    const guests: Array<{ id: string; name: string; status: string; rsvpDate?: string; photo?: string }> = []
-    let usedFirestore = false
+    const guests: Array<{ id: string; name: string; status: string | null; rsvpDate?: string; photo?: string }> = []
+    const photoMap = new Map<string, string>() // id -> photo URL
 
-    // Try public API first - has photos and works for public events
+    // Step 1: If we have a token, use Firestore to get ALL guests (including PENDING, INVITED)
+    if (token) {
+      console.log('Using Firestore with token for full guest list...')
+      let nextPageToken: string | null = null
+      
+      do {
+        const url = new URL(`https://firestore.googleapis.com/v1/projects/getpartiful/databases/(default)/documents/events/${partiful_event_id}/guests`)
+        url.searchParams.set('pageSize', '300')
+        if (nextPageToken) {
+          url.searchParams.set('pageToken', nextPageToken)
+        }
+
+        const res = await fetch(url.toString(), {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
+        })
+
+        if (!res.ok) {
+          const text = await res.text()
+          console.error('Firestore API error:', res.status, text)
+          break
+        }
+
+        const data = await res.json()
+        const documents: FirestoreDocument[] = data.documents || []
+        
+        for (const doc of documents) {
+          const fields = doc.fields
+          const docId = doc.name.split('/').pop() || ''
+          
+          const name = extractValue(fields.name) as string || 'Unknown'
+          const status = extractValue(fields.status) as string || null
+          const rsvpDate = extractValue(fields.rsvpDate) as string || null
+          
+          guests.push({
+            id: docId,
+            name,
+            status,
+            rsvpDate: rsvpDate || undefined,
+            photo: undefined, // Will be filled from public API
+          })
+        }
+
+        nextPageToken = data.nextPageToken || null
+      } while (nextPageToken)
+      
+      console.log(`Firestore returned ${guests.length} guests`)
+    }
+
+    // Step 2: Get photos from public API (only has APPROVED guests, but that's where photos are)
     let cursor: string | null = null
     
     do {
@@ -120,8 +172,9 @@ export async function POST(request: NextRequest) {
       const pageGuests = data.result?.data || []
       
       for (const g of pageGuests) {
-        // Photo structure: { url, upload: { url, path } }
-        // Use Imgix thumbnail for faster loading (same as Partiful UI)
+        const id = g.user?.id || g.id
+        
+        // Extract photo URL
         let photoUrl: string | null = null
         if (g.user?.photo) {
           if (g.user.photo.upload?.path) {
@@ -131,76 +184,42 @@ export async function POST(request: NextRequest) {
             photoUrl = g.user.photo.url
           } else if (g.user.photo.upload?.url) {
             photoUrl = g.user.photo.upload.url
-          } else if (typeof g.user.photo === 'string') {
-            photoUrl = g.user.photo
           }
         }
         
-        guests.push({
-          id: g.user?.id || g.id,
-          name: g.user?.name || g.name || 'Unknown',
-          status: g.status,
-          rsvpDate: g.rsvpDate,
-          photo: photoUrl || undefined,
-        })
+        if (photoUrl) {
+          photoMap.set(id, photoUrl)
+        }
+        
+        // If we didn't get guests from Firestore, use public API as source
+        if (guests.length === 0) {
+          guests.push({
+            id,
+            name: g.user?.name || g.name || 'Unknown',
+            status: g.status,
+            rsvpDate: g.rsvpDate,
+            photo: photoUrl || undefined,
+          })
+        }
       }
       
       cursor = data.result?.paging?.nextCursor || null
     } while (cursor)
+    
+    console.log(`Public API returned ${photoMap.size} photos`)
 
-    // If public API got nothing and we have a token, try Firestore
-    if (guests.length === 0 && token) {
-      console.log('Public API returned no guests, trying Firestore...')
-      usedFirestore = true
-      let nextPageToken: string | null = null
-      
-      do {
-        const url = new URL(`https://firestore.googleapis.com/v1/projects/getpartiful/databases/(default)/documents/events/${partiful_event_id}/guests`)
-        url.searchParams.set('pageSize', '300')
-        if (nextPageToken) {
-          url.searchParams.set('pageToken', nextPageToken)
+    // Step 3: Merge photos into Firestore guests
+    if (guests.length > 0 && photoMap.size > 0) {
+      for (const guest of guests) {
+        const photo = photoMap.get(guest.id)
+        if (photo) {
+          guest.photo = photo
         }
-
-        const res = await fetch(url.toString(), {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-          },
-        })
-
-        if (!res.ok) {
-          const text = await res.text()
-          console.error('Firestore API error:', res.status, text)
-          break
-        }
-
-        const data = await res.json()
-        const documents: FirestoreDocument[] = data.documents || []
-        
-        for (const doc of documents) {
-          const fields = doc.fields
-          const docId = doc.name.split('/').pop() || ''
-          
-          const name = extractValue(fields.name) as string || 'Unknown'
-          const status = extractValue(fields.status) as string || 'PENDING'
-          const rsvpDate = extractValue(fields.rsvpDate) as string || null
-          
-          // Firestore doesn't have photos inline - user field is a reference
-          // We'd need to fetch user docs separately to get photos
-          guests.push({
-            id: docId,
-            name,
-            status,
-            rsvpDate: rsvpDate || undefined,
-            photo: undefined,
-          })
-        }
-
-        nextPageToken = data.nextPageToken || null
-      } while (nextPageToken)
+      }
     }
 
     if (guests.length === 0) {
-      return NextResponse.json({ imported: 0, total_from_partiful: 0, used_firestore: usedFirestore })
+      return NextResponse.json({ imported: 0, total_from_partiful: 0 })
     }
 
     const supabase = createServiceClient()
@@ -227,10 +246,16 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: upsertError.message }, { status: 500 })
     }
 
+    // Count statuses for response
+    const statusCounts = guestRows.reduce((acc, g) => {
+      acc[g.partiful_status] = (acc[g.partiful_status] || 0) + 1
+      return acc
+    }, {} as Record<string, number>)
+
     return NextResponse.json({ 
       imported: guestRows.length, 
-      total_from_partiful: guests.length,
-      used_firestore: usedFirestore,
+      photos: photoMap.size,
+      statuses: statusCounts,
     })
   } catch (error) {
     console.error('Sync error:', error)
