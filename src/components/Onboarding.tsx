@@ -131,7 +131,17 @@ export function Onboarding() {
             data: { name: pendingSignup.name }
           }
         })
-        if (signUpError) throw signUpError
+        if (signUpError) {
+          if (signUpError.message?.includes('already registered')) {
+            setError('Account already exists. Please log in instead.')
+            sessionStorage.removeItem(PENDING_SIGNUP_KEY)
+            setPendingSignup(null)
+            setStep('auth')
+            setLoading(false)
+            return
+          }
+          throw signUpError
+        }
         if (!signUpData.user) throw new Error('Failed to create account')
 
         // Clear pending signup

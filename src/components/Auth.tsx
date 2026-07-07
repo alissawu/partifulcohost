@@ -46,22 +46,7 @@ export function Auth({ onSuccess, onSignupContinue }: AuthProps) {
 
     try {
       if (mode === 'signup') {
-        // Check if email already exists by trying to sign in with wrong password
-        // This is a workaround since Supabase doesn't have a direct "check email exists" API
-        const { error: checkError } = await supabase.auth.signInWithPassword({
-          email,
-          password: '__check_exists__',
-        })
-        
-        // If error is "Invalid login credentials", account exists - switch to login
-        if (checkError?.message?.includes('Invalid login credentials')) {
-          setMode('login')
-          setError('Account already exists. Please log in.')
-          setLoading(false)
-          return
-        }
-        
-        // Otherwise proceed with signup flow
+        // Just proceed with signup - if email exists, we'll catch it when creating the account
         onSignupContinue({ email, password, name })
       } else {
         const { error: signInError } = await supabase.auth.signInWithPassword({
