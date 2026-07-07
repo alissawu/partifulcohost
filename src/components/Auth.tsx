@@ -45,20 +45,38 @@ export function Auth({ onSuccess, onSignupContinue }: AuthProps) {
     }
 
     try {
+      // Check if email exists
+      const checkRes = await fetch('/api/auth/check-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      })
+      const { exists } = await checkRes.json()
+
       if (mode === 'signup') {
-        // Just proceed with signup - if email exists, we'll catch it when creating the account
+        if (exists) {
+          setMode('login')
+          setError('Account already exists. Please log in.')
+          setLoading(false)
+          return
+        }
         onSignupContinue({ email, password, name })
       } else {
+        if (!exists) {
+          setMode('signup')
+          setError('No account found. Please sign up.')
+          setLoading(false)
+          return
+        }
+        
         const { error: signInError } = await supabase.auth.signInWithPassword({
           email,
           password,
         })
         
         if (signInError) {
-          // Check if it's a "no account" error and suggest signup
           if (signInError.message?.includes('Invalid login credentials')) {
-            // Could be wrong password OR no account - show helpful message
-            setError('Invalid email or password. Need an account? Switch to Sign up.')
+            setError('Wrong password.')
           } else {
             throw signInError
           }
