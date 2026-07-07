@@ -4,11 +4,18 @@ import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 
+const PENDING_EVENT_URL_KEY = 'cohost_pending_event_url'
+
 export default function AuthCallback() {
   const [status, setStatus] = useState('Processing...')
   const [error, setError] = useState('')
   const router = useRouter()
   const supabase = createClient()
+
+  const extractEventId = (url: string): string | null => {
+    const match = url.match(/partiful\.com\/e\/([a-zA-Z0-9]+)/)
+    return match ? match[1] : null
+  }
 
   useEffect(() => {
     const processToken = async () => {
@@ -28,10 +35,20 @@ export default function AuthCallback() {
         return
       }
 
+      // Get event URL from localStorage
+      const storedEventUrl = localStorage.getItem(PENDING_EVENT_URL_KEY)
+      const eventId = storedEventUrl ? extractEventId(storedEventUrl) : null
+
+      if (!eventId) {
+        setError('No event URL found. Please go back and enter your Partiful event URL.')
+        return
+      }
+
       setStatus('Linking your Partiful account...')
 
       try {
-        const res = await fetch('/api/auth/partiful', {
+        // Link Partiful account
+        const linkRes = await fetch('/api/auth/partiful', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -40,15 +57,53 @@ export default function AuthCallback() {
           }),
         })
 
-        const data = await res.json()
-        if (!res.ok) {
-          throw new Error(data.error || 'Failed to link account')
+        const linkData = await linkRes.json()
+        if (!linkRes.ok) {
+          throw new Error(linkData.error || 'Failed to link account')
         }
 
+        setStatus('Creating event...')
+
+        // Create event
+        const eventRes = await fetch('/api/events', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            partiful_event_id: eventId,
+            name: 'My Event',
+            user_id: user.id,
+            host_name: user.user_metadata?.name || user.email?.split('@')[0] || 'Host',
+          }),
+        })
+
+        const eventData = await eventRes.json()
+        if (!eventRes.ok) {
+          throw new Error(eventData.error || 'Failed to create event')
+        }
+
+        setStatus('Syncing guest list...')
+
+        // Sync guests
+        await fetch('/api/sync/partiful', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            event_id: eventData.event.id,
+            partiful_event_id: eventId,
+            token,
+          }),
+        })
+
+        // Clear stored event URL
+        localStorage.removeItem(PENDING_EVENT_URL_KEY)
+
+        // Store access code to show on redirect
+        localStorage.setItem('cohost_created_access_code', eventData.access_code)
+
         setStatus('Success! Redirecting...')
-        setTimeout(() => router.push('/'), 1500)
+        setTimeout(() => router.push('/?created=true'), 1000)
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to link account')
+        setError(err instanceof Error ? err.message : 'Something went wrong')
       }
     }
 

@@ -22,6 +22,20 @@ export function Onboarding() {
 
   useEffect(() => {
     const init = async () => {
+      // Check if redirected from callback after event creation
+      const urlParams = new URLSearchParams(window.location.search)
+      if (urlParams.get('created') === 'true') {
+        const accessCode = localStorage.getItem('cohost_created_access_code')
+        if (accessCode) {
+          setCreatedAccessCode(accessCode)
+          localStorage.removeItem('cohost_created_access_code')
+          // Clear URL param
+          window.history.replaceState({}, '', '/')
+          setStep('created')
+          return
+        }
+      }
+
       const { data: { user } } = await supabase.auth.getUser()
       if (user) {
         setUser(user)
