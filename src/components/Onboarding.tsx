@@ -68,10 +68,14 @@ export function Onboarding() {
   }, [supabase.auth, step])
 
   const handleAuthSuccess = async () => {
-    const { data: { user } } = await supabase.auth.getUser()
+    console.log('handleAuthSuccess called')
+    const { data: { user }, error } = await supabase.auth.getUser()
+    console.log('getUser result:', { user: user?.email, error })
     if (user) {
       setUser(user)
       setStep('link_partiful')
+    } else {
+      console.error('No user after auth success')
     }
   }
 

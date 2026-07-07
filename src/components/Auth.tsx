@@ -34,6 +34,13 @@ export function Auth({ onSuccess }: AuthProps) {
           }
         })
         if (signUpError) throw signUpError
+        
+        // Auto sign-in after signup
+        const { error: signInError } = await supabase.auth.signInWithPassword({
+          email,
+          password,
+        })
+        if (signInError) throw signInError
       } else {
         const { error: signInError } = await supabase.auth.signInWithPassword({
           email,
@@ -43,6 +50,7 @@ export function Auth({ onSuccess }: AuthProps) {
       }
       onSuccess()
     } catch (err) {
+      console.error('Auth error:', err)
       setError(err instanceof Error ? err.message : 'Something went wrong')
     } finally {
       setLoading(false)
