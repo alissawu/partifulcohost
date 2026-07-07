@@ -1,7 +1,7 @@
 @import "tailwindcss";
 
 :root {
-  --color-accent: #6365C0;
+  --color-accent: #8B5BA5;
   --color-accent-muted: #5156AC;
   --color-accent-glow: rgba(99, 101, 192, 0.2);
 }
@@ -24,7 +24,7 @@
   --color-text-faint: #6b6b70;
   
   /* Accents - purple/violet to match Partiful */
-  --color-accent: #6365C0;
+  --color-accent: #8B5BA5;
   --color-accent-muted: #5156AC;
   --color-accent-glow: rgba(99, 101, 192, 0.2);
   
@@ -32,7 +32,7 @@
   --color-approved: #4ade80;
   --color-pending: #fbbf24;
   --color-rejected: #f87171;
-  --color-invited: #6365C0;
+  --color-invited: #8B5BA5;
   --color-flagged: #f472b6;
   
   /* Vote colors */

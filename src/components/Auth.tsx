@@ -117,7 +117,7 @@ export function Auth({ onSuccess, onSignupContinue }: AuthProps) {
           onClick={() => { setMode('login'); setError('') }}
           className={`flex-1 py-2 rounded-lg font-medium transition-colors ${
             mode === 'login'
-              ? 'bg-[#6365C0] text-white'
+              ? 'bg-[#8B5BA5] text-white'
               : 'bg-[var(--color-bg-secondary)] text-[var(--color-text-muted)]'
           }`}
         >
@@ -127,7 +127,7 @@ export function Auth({ onSuccess, onSignupContinue }: AuthProps) {
           onClick={() => { setMode('signup'); setError('') }}
           className={`flex-1 py-2 rounded-lg font-medium transition-colors ${
             mode === 'signup'
-              ? 'bg-[#6365C0] text-white'
+              ? 'bg-[#8B5BA5] text-white'
               : 'bg-[var(--color-bg-secondary)] text-[var(--color-text-muted)]'
           }`}
         >
@@ -143,7 +143,7 @@ export function Auth({ onSuccess, onSignupContinue }: AuthProps) {
             value={name}
             onChange={(e) => setName(e.target.value)}
             required
-            className="w-full px-4 py-3 bg-[var(--color-bg-secondary)] border border-[var(--color-border)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#6365C0]"
+            className="w-full px-4 py-3 bg-[var(--color-bg-secondary)] border border-[var(--color-border)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#8B5BA5]"
           />
         )}
         <input
@@ -152,7 +152,7 @@ export function Auth({ onSuccess, onSignupContinue }: AuthProps) {
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           required
-          className="w-full px-4 py-3 bg-[var(--color-bg-secondary)] border border-[var(--color-border)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#6365C0]"
+          className="w-full px-4 py-3 bg-[var(--color-bg-secondary)] border border-[var(--color-border)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#8B5BA5]"
         />
         <input
           type="password"
@@ -161,7 +161,7 @@ export function Auth({ onSuccess, onSignupContinue }: AuthProps) {
           onChange={(e) => setPassword(e.target.value)}
           required
           minLength={6}
-          className="w-full px-4 py-3 bg-[var(--color-bg-secondary)] border border-[var(--color-border)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#6365C0]"
+          className="w-full px-4 py-3 bg-[var(--color-bg-secondary)] border border-[var(--color-border)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#8B5BA5]"
         />
 
         {error && (
@@ -171,7 +171,7 @@ export function Auth({ onSuccess, onSignupContinue }: AuthProps) {
         <button
           type="submit"
           disabled={loading}
-          className="w-full py-3 bg-[#6365C0] text-white rounded-lg font-medium hover:opacity-90 transition-opacity disabled:opacity-50"
+          className="w-full py-3 bg-[#8B5BA5] text-white rounded-lg font-medium hover:opacity-90 transition-opacity disabled:opacity-50"
         >
           {loading ? '...' : mode === 'login' ? 'Log in' : 'Continue →'}
         </button>
