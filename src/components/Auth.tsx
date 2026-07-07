@@ -34,15 +34,31 @@ export function Auth({ onSuccess, onSignupContinue }: AuthProps) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    setLoading(true)
     setError('')
 
-    // Validate email format
-    if (!validateEmail(email)) {
-      setError('Please enter a valid email address')
-      setLoading(false)
+    // Validate required fields
+    if (mode === 'signup' && !name.trim()) {
+      setError('Name is required')
       return
     }
+    if (!email.trim()) {
+      setError('Email is required')
+      return
+    }
+    if (!validateEmail(email)) {
+      setError('Please enter a valid email address')
+      return
+    }
+    if (!password) {
+      setError('Password is required')
+      return
+    }
+    if (password.length < 6) {
+      setError('Password must be at least 6 characters')
+      return
+    }
+
+    setLoading(true)
 
     try {
       // Check if email exists
