@@ -5,12 +5,14 @@ import { createClient } from '@/lib/supabase/client'
 
 interface LinkPartifulProps {
   onComplete: (data: { partifulUserId: string; eventId: string; token: string }) => void
+  isNewSignup?: boolean
+  pendingName?: string
 }
 
 const PENDING_EVENT_URL_KEY = 'cohost_pending_event_url'
 const LEGACY_PENDING_EVENT_URL_KEY = 'cosign_pending_event_url'
 
-export function LinkPartiful({ onComplete }: LinkPartifulProps) {
+export function LinkPartiful({ onComplete, isNewSignup, pendingName }: LinkPartifulProps) {
   const [eventUrl, setEventUrl] = useState('')
   const [checking, setChecking] = useState(false)
   const [error, setError] = useState('')
@@ -123,6 +125,8 @@ export function LinkPartiful({ onComplete }: LinkPartifulProps) {
   }
 
   const handleSignOut = async () => {
+    sessionStorage.removeItem('cohost_pending_signup')
+    sessionStorage.removeItem(PENDING_EVENT_URL_KEY)
     await supabase.auth.signOut()
     window.location.href = '/'
   }
@@ -133,11 +137,16 @@ export function LinkPartiful({ onComplete }: LinkPartifulProps) {
         onClick={handleSignOut}
         className="absolute top-4 right-4 text-sm text-[var(--color-text-muted)] hover:text-[var(--color-text)]"
       >
-        Sign out
+        {isNewSignup ? 'Start over' : 'Sign out'}
       </button>
-      <h1 className="text-2xl font-semibold mb-2">Connect your event</h1>
+      <h1 className="text-2xl font-semibold mb-2">
+        {isNewSignup ? `Almost done, ${pendingName || 'there'}!` : 'Connect your event'}
+      </h1>
       <p className="text-[var(--color-text-muted)] mb-8 text-center max-w-md">
-        We&apos;ll verify you&apos;re a host and sync the guest list with real names
+        {isNewSignup 
+          ? "Link your Partiful account to finish creating your account"
+          : "We'll verify you're a host and sync the guest list with real names"
+        }
       </p>
 
       <div className="w-full max-w-md space-y-6">

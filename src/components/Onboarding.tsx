@@ -9,9 +9,18 @@ import type { User } from '@supabase/supabase-js'
 
 type Step = 'auth' | 'link_partiful' | 'choose' | 'join' | 'created'
 
+const PENDING_SIGNUP_KEY = 'cohost_pending_signup'
+
+interface PendingSignup {
+  email: string
+  password: string
+  name: string
+}
+
 export function Onboarding() {
   const [step, setStep] = useState<Step>('auth')
   const [user, setUser] = useState<User | null>(null)
+  const [pendingSignup, setPendingSignup] = useState<PendingSignup | null>(null)
   const [accessCode, setAccessCode] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -22,6 +31,14 @@ export function Onboarding() {
 
   useEffect(() => {
     const init = async () => {
+      // Check for pending signup in sessionStorage
+      const stored = sessionStorage.getItem(PENDING_SIGNUP_KEY)
+      if (stored) {
+        setPendingSignup(JSON.parse(stored))
+        setStep('link_partiful')
+        return
+      }
+
       const { data: { user } } = await supabase.auth.getUser()
       if (user) {
         setUser(user)
@@ -62,57 +79,132 @@ export function Onboarding() {
     return () => subscription.unsubscribe()
   }, [supabase.auth, step])
 
+  // Login success - user already exists
   const handleAuthSuccess = async () => {
-    console.log('handleAuthSuccess called')
-    const { data: { user }, error } = await supabase.auth.getUser()
-    console.log('getUser result:', { user: user?.email, error })
+    const { data: { user } } = await supabase.auth.getUser()
     if (user) {
       setUser(user)
-      setStep('link_partiful')
-    } else {
-      console.error('No user after auth success')
+      // Check if Partiful is linked
+      const res = await fetch(`/api/user/profile?user_id=${user.id}`)
+      if (res.ok) {
+        const data = await res.json()
+        if (data.partiful_user_id) {
+          setStep('choose')
+        } else {
+          setStep('link_partiful')
+        }
+      } else {
+        setStep('link_partiful')
+      }
     }
   }
 
-  // Combined handler: link Partiful + create event + sync guests with token
+  // Signup continue - don't create account yet, store data and go to Partiful linking
+  const handleSignupContinue = (data: { email: string; password: string; name: string }) => {
+    sessionStorage.setItem(PENDING_SIGNUP_KEY, JSON.stringify(data))
+    setPendingSignup(data)
+    setStep('link_partiful')
+  }
+
+  // Partiful link complete - NOW create the account
   const handlePartifulComplete = async (data: { partifulUserId: string; eventId: string; token: string }) => {
-    if (!user) return
-    
+    setLoading(true)
+    setError('')
+
     try {
-      // Create the event
-      const res = await fetch('/api/events', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          partiful_event_id: data.eventId,
-          name: 'My Event', // Default name, can be edited later
-          user_id: user.id,
-          host_name: user.user_metadata?.name || user.email?.split('@')[0] || 'Host',
-        }),
-      })
+      // If we have pending signup, create the account now
+      if (pendingSignup) {
+        const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
+          email: pendingSignup.email,
+          password: pendingSignup.password,
+          options: {
+            data: { name: pendingSignup.name }
+          }
+        })
+        if (signUpError) throw signUpError
+        if (!signUpData.user) throw new Error('Failed to create account')
 
-      const eventData = await res.json()
-      if (!res.ok) throw new Error(eventData.error || 'Failed to create event')
+        // Clear pending signup
+        sessionStorage.removeItem(PENDING_SIGNUP_KEY)
+        setPendingSignup(null)
+        setUser(signUpData.user)
 
-      setCreatedAccessCode(eventData.access_code)
+        // Link Partiful account
+        await fetch('/api/auth/partiful', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            token: data.token,
+            cohost_user_id: signUpData.user.id,
+          }),
+        })
 
-      // Sync guests using the fresh token for full names
-      await fetch('/api/sync/partiful', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          event_id: eventData.event.id,
-          partiful_event_id: data.eventId,
-          token: data.token, // Pass the token for Firestore access
-        }),
-      })
+        // Create the event
+        const eventRes = await fetch('/api/events', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            partiful_event_id: data.eventId,
+            name: 'My Event',
+            user_id: signUpData.user.id,
+            host_name: pendingSignup.name,
+          }),
+        })
 
-      setSession(eventData.event, eventData.host)
-      setStep('created')
+        const eventData = await eventRes.json()
+        if (!eventRes.ok) throw new Error(eventData.error || 'Failed to create event')
+
+        setCreatedAccessCode(eventData.access_code)
+
+        // Sync guests
+        await fetch('/api/sync/partiful', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            event_id: eventData.event.id,
+            partiful_event_id: data.eventId,
+            token: data.token,
+          }),
+        })
+
+        setSession(eventData.event, eventData.host)
+        setStep('created')
+      } else if (user) {
+        // Existing user adding new event
+        const eventRes = await fetch('/api/events', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            partiful_event_id: data.eventId,
+            name: 'My Event',
+            user_id: user.id,
+            host_name: user.user_metadata?.name || user.email?.split('@')[0] || 'Host',
+          }),
+        })
+
+        const eventData = await eventRes.json()
+        if (!eventRes.ok) throw new Error(eventData.error || 'Failed to create event')
+
+        setCreatedAccessCode(eventData.access_code)
+
+        await fetch('/api/sync/partiful', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            event_id: eventData.event.id,
+            partiful_event_id: data.eventId,
+            token: data.token,
+          }),
+        })
+
+        setSession(eventData.event, eventData.host)
+        setStep('created')
+      }
     } catch (err) {
-      console.error('Error creating event:', err)
-      setError(err instanceof Error ? err.message : 'Failed to create event')
-      setStep('choose')
+      console.error('Error:', err)
+      setError(err instanceof Error ? err.message : 'Something went wrong')
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -156,13 +248,19 @@ export function Onboarding() {
       <div className="min-h-screen bg-[var(--color-bg)] flex flex-col items-center justify-center p-4">
         <h1 className="text-2xl font-semibold mb-2">Partiful Cohost</h1>
         <p className="text-[var(--color-text-muted)] mb-8">Multi-host guest vetting</p>
-        <Auth onSuccess={handleAuthSuccess} />
+        <Auth onSuccess={handleAuthSuccess} onSignupContinue={handleSignupContinue} />
       </div>
     )
   }
 
   if (step === 'link_partiful') {
-    return <LinkPartiful onComplete={handlePartifulComplete} />
+    return (
+      <LinkPartiful 
+        onComplete={handlePartifulComplete} 
+        isNewSignup={!!pendingSignup}
+        pendingName={pendingSignup?.name}
+      />
+    )
   }
 
   if (step === 'choose') {
