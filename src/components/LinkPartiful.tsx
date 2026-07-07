@@ -26,7 +26,7 @@ export function LinkPartiful({ onComplete }: LinkPartifulProps) {
   // The console command that extracts the token and sends it to us
   const getConsoleCommand = () => {
     const baseUrl = typeof window !== 'undefined' ? window.location.origin : ''
-    return `new Promise(r=>indexedDB.open('firebaseLocalStorageDb').onsuccess=e=>e.target.result.transaction('firebaseLocalStorage').objectStore('firebaseLocalStorage').getAll().onsuccess=e=>r((e.target.result.find(x=>x.fbase_key?.startsWith('firebase:authUser:'))||{}).value?.stsTokenManager?.accessToken)).then(t=>t?location.assign('${baseUrl}/auth/callback#token='+encodeURIComponent(t)):alert('Not logged into Partiful'))`
+    return `new Promise(r=>indexedDB.open('firebaseLocalStorageDb').onsuccess=e=>e.target.result.transaction('firebaseLocalStorage').objectStore('firebaseLocalStorage').getAll().onsuccess=e=>r((e.target.result.find(x=>x.fbase_key?.startsWith('firebase:authUser:'))||{}).value?.stsTokenManager?.accessToken)).then(t=>t?window.open('${baseUrl}/auth/callback#token='+encodeURIComponent(t),'_blank'):alert('Not logged into Partiful'))`
   }
 
   const copyCommand = () => {
@@ -216,7 +216,7 @@ export function LinkPartiful({ onComplete }: LinkPartifulProps) {
                 </button>
               </div>
               <p className="text-sm text-[var(--color-text-muted)]">
-                This will redirect you back here and sync your guest list
+                This will open a new tab to complete the connection
               </p>
             </div>
           </>
