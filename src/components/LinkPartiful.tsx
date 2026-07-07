@@ -158,7 +158,7 @@ export function LinkPartiful({ onComplete }: LinkPartifulProps) {
             <div className="space-y-2">
               <p className="font-medium">3. Open the browser console</p>
               <p className="text-sm text-[var(--color-text-muted)]">
-                Mac: Cmd + Option + J &nbsp;•&nbsp; Windows: Ctrl + Shift + J
+                Right-click anywhere → Inspect → Console tab
               </p>
             </div>
 
