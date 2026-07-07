@@ -62,7 +62,7 @@ export default function AuthCallback() {
           <p className="text-red-500 mb-4">{error}</p>
           <button
             onClick={() => router.push('/')}
-            className="text-[var(--color-accent)] hover:underline"
+            className="text-[#6365C0] hover:underline"
           >
             Go back
           </button>

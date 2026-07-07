@@ -161,7 +161,7 @@ export function LinkPartiful({ onComplete, isNewSignup, pendingName }: LinkParti
               setEventUrl(e.target.value)
               setError('')
             }}
-            className="w-full px-4 py-3 bg-[var(--color-bg-secondary)] border border-[var(--color-border)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)]"
+            className="w-full px-4 py-3 bg-[var(--color-bg-secondary)] border border-[var(--color-border)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#6365C0]"
           />
           <p className="text-xs text-[var(--color-text-muted)]">
             You can add more events later
@@ -181,13 +181,13 @@ export function LinkPartiful({ onComplete, isNewSignup, pendingName }: LinkParti
               <div className="flex gap-2 mb-2">
                 <button
                   onClick={() => setOsTab('mac')}
-                  className={`px-3 py-1 text-sm rounded ${osTab === 'mac' ? 'bg-[var(--color-accent)] text-white' : 'bg-[var(--color-bg-secondary)] text-[var(--color-text-muted)]'}`}
+                  className={`px-3 py-1 text-sm rounded ${osTab === 'mac' ? 'bg-[#6365C0] text-white' : 'bg-[var(--color-bg-secondary)] text-[var(--color-text-muted)]'}`}
                 >
                   Mac
                 </button>
                 <button
                   onClick={() => setOsTab('windows')}
-                  className={`px-3 py-1 text-sm rounded ${osTab === 'windows' ? 'bg-[var(--color-accent)] text-white' : 'bg-[var(--color-bg-secondary)] text-[var(--color-text-muted)]'}`}
+                  className={`px-3 py-1 text-sm rounded ${osTab === 'windows' ? 'bg-[#6365C0] text-white' : 'bg-[var(--color-bg-secondary)] text-[var(--color-text-muted)]'}`}
                 >
                   Windows
                 </button>
@@ -219,7 +219,7 @@ export function LinkPartiful({ onComplete, isNewSignup, pendingName }: LinkParti
                       copyCommand()
                     }
                   }}
-                  className="absolute top-2 right-2 px-3 py-1 bg-[var(--color-accent)] text-white text-xs rounded hover:opacity-90"
+                  className="absolute top-2 right-2 px-3 py-1 bg-[#6365C0] text-white text-xs rounded hover:opacity-90"
                 >
                   {copied ? 'Copied!' : 'Copy'}
                 </button>

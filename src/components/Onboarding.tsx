@@ -292,7 +292,7 @@ export function Onboarding() {
         <div className="flex flex-col gap-3 w-full max-w-sm">
           <button
             onClick={() => setStep('link_partiful')}
-            className="w-full py-4 bg-[var(--color-accent)] text-white rounded-lg font-medium hover:opacity-90 transition-opacity"
+            className="w-full py-4 bg-[#6365C0] text-white rounded-lg font-medium hover:opacity-90 transition-opacity"
           >
             Add new event
           </button>
@@ -343,7 +343,7 @@ export function Onboarding() {
           onClick={async () => {
             await fetchGuests()
           }}
-          className="px-6 py-3 bg-[var(--color-accent)] text-white rounded-lg font-medium hover:opacity-90 transition-opacity"
+          className="px-6 py-3 bg-[#6365C0] text-white rounded-lg font-medium hover:opacity-90 transition-opacity"
         >
           View guest list →
         </button>
@@ -370,7 +370,7 @@ export function Onboarding() {
           value={accessCode}
           onChange={(e) => setAccessCode(e.target.value)}
           required
-          className="w-full px-4 py-3 bg-[var(--color-bg-secondary)] border border-[var(--color-border)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)] font-mono text-center text-lg tracking-wider"
+          className="w-full px-4 py-3 bg-[var(--color-bg-secondary)] border border-[var(--color-border)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#6365C0] font-mono text-center text-lg tracking-wider"
         />
 
         {error && <p className="text-red-500 text-sm">{error}</p>}
@@ -378,7 +378,7 @@ export function Onboarding() {
         <button
           type="submit"
           disabled={loading}
-          className="w-full py-3 bg-[var(--color-accent)] text-white rounded-lg font-medium hover:opacity-90 transition-opacity disabled:opacity-50"
+          className="w-full py-3 bg-[#6365C0] text-white rounded-lg font-medium hover:opacity-90 transition-opacity disabled:opacity-50"
         >
           {loading ? 'Joining...' : 'Join'}
         </button>

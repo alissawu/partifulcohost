@@ -181,7 +181,7 @@ export default function Home() {
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-xl font-semibold text-[var(--color-text-primary)]">
-                <span className="text-[var(--color-accent)]">co</span>host
+                <span className="text-[#6365C0]">co</span>host
               </h1>
               <p className="text-sm text-[var(--color-text-muted)]">
                 {event.name}
@@ -217,7 +217,7 @@ export default function Home() {
               <button
                 onClick={fetchGuests}
                 disabled={isLoading}
-                className="px-3 py-1.5 bg-[var(--color-accent)] hover:brightness-110 text-white text-sm font-medium rounded-lg transition-all disabled:opacity-50"
+                className="px-3 py-1.5 bg-[#6365C0] hover:brightness-110 text-white text-sm font-medium rounded-lg transition-all disabled:opacity-50"
               >
                 {isLoading ? 'Syncing...' : 'Sync'}
               </button>
@@ -241,7 +241,7 @@ export default function Home() {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search guests..."
-              className="w-full bg-[var(--color-bg-card)] border border-[var(--color-border)] rounded-lg px-4 py-2 text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] focus:outline-none focus:border-[var(--color-accent)]"
+              className="w-full bg-[var(--color-bg-card)] border border-[var(--color-border)] rounded-lg px-4 py-2 text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] focus:outline-none focus:border-[#6365C0]"
             />
           </div>
           
@@ -251,7 +251,7 @@ export default function Home() {
               onClick={() => setFilter('all')}
               className={`px-3 py-1.5 rounded-full text-sm whitespace-nowrap transition-colors ${
                 filter === 'all'
-                  ? 'bg-[var(--color-accent)] text-white'
+                  ? 'bg-[#6365C0] text-white'
                   : 'bg-[var(--color-bg-card)] text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-hover)]'
               }`}
             >
@@ -275,7 +275,7 @@ export default function Home() {
                 onClick={() => setFilter(status)}
                 className={`px-3 py-1.5 rounded-full text-sm whitespace-nowrap transition-colors ${
                   filter === status
-                    ? 'bg-[var(--color-accent)] text-white'
+                    ? 'bg-[#6365C0] text-white'
                     : 'bg-[var(--color-bg-card)] text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-hover)]'
                 }`}
               >
@@ -293,7 +293,7 @@ export default function Home() {
             <p className="text-[var(--color-text-muted)]">No guests yet</p>
             <button
               onClick={() => setShowImport(true)}
-              className="mt-4 px-4 py-2 bg-[var(--color-accent)] text-white rounded-lg font-medium hover:brightness-110 transition-all"
+              className="mt-4 px-4 py-2 bg-[#6365C0] text-white rounded-lg font-medium hover:brightness-110 transition-all"
             >
               Import from Partiful
             </button>
@@ -388,7 +388,7 @@ export default function Home() {
                   value={importJson}
                   onChange={(e) => setImportJson(e.target.value)}
                   placeholder='{"result": {"data": [{"id": "...", "name": "...", "status": "..."}]}}'
-                  className="w-full h-48 bg-[var(--color-bg-elevated)] border border-[var(--color-border)] rounded-lg px-3 py-2 text-sm text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] focus:outline-none focus:border-[var(--color-accent)] font-mono resize-none"
+                  className="w-full h-48 bg-[var(--color-bg-elevated)] border border-[var(--color-border)] rounded-lg px-3 py-2 text-sm text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] focus:outline-none focus:border-[#6365C0] font-mono resize-none"
                 />
               </div>
               
@@ -417,7 +417,7 @@ export default function Home() {
                 <button
                   onClick={handleImport}
                   disabled={importLoading || !importJson.trim()}
-                  className="px-4 py-2 bg-[var(--color-accent)] text-white font-medium rounded-lg hover:brightness-110 transition-all disabled:opacity-50"
+                  className="px-4 py-2 bg-[#6365C0] text-white font-medium rounded-lg hover:brightness-110 transition-all disabled:opacity-50"
                 >
                   {importLoading ? 'Importing...' : 'Import'}
                 </button>

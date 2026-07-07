@@ -76,7 +76,7 @@ export function GuestCard({ guest }: Props) {
       className={`
         bg-[var(--color-bg-card)] rounded-xl p-4 transition-all
         ${guest.has_conflict ? 'ring-2 ring-[var(--color-status-flagged)]/50' : ''}
-        ${guest.is_flagged ? 'ring-2 ring-[var(--color-accent)]/50' : ''}
+        ${guest.is_flagged ? 'ring-2 ring-[#6365C0]/50' : ''}
       `}
     >
       <div className="flex items-start gap-3">
@@ -173,7 +173,7 @@ export function GuestCard({ guest }: Props) {
             onClick={handleFlag}
             className={`p-1.5 rounded-lg transition-colors ${
               guest.is_flagged 
-                ? 'text-[var(--color-accent)]' 
+                ? 'text-[#6365C0]' 
                 : 'hover:bg-[var(--color-bg-hover)] text-[var(--color-text-muted)]'
             }`}
             title={guest.is_flagged ? 'Unflag' : 'Flag for review'}
@@ -247,12 +247,12 @@ export function GuestCard({ guest }: Props) {
               onChange={(e) => setCommentText(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleComment()}
               placeholder="Add a comment..."
-              className="flex-1 bg-[var(--color-bg-elevated)] border border-[var(--color-border)] rounded-lg px-3 py-2 text-sm text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] focus:outline-none focus:border-[var(--color-accent)]"
+              className="flex-1 bg-[var(--color-bg-elevated)] border border-[var(--color-border)] rounded-lg px-3 py-2 text-sm text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] focus:outline-none focus:border-[#6365C0]"
             />
             <button
               onClick={handleComment}
               disabled={!commentText.trim()}
-              className="px-3 py-2 bg-[var(--color-accent)] text-white rounded-lg text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:brightness-110 transition-all"
+              className="px-3 py-2 bg-[#6365C0] text-white rounded-lg text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:brightness-110 transition-all"
             >
               Send
             </button>
