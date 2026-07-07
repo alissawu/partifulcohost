@@ -15,6 +15,7 @@ export function LinkPartiful({ onComplete }: LinkPartifulProps) {
   const [checking, setChecking] = useState(false)
   const [error, setError] = useState('')
   const [copied, setCopied] = useState(false)
+  const [osTab, setOsTab] = useState<'mac' | 'windows'>('mac')
   const supabase = createClient()
 
   const extractEventId = (url: string): string | null => {
@@ -157,12 +158,31 @@ export function LinkPartiful({ onComplete }: LinkPartifulProps) {
             {/* Step 3: Console */}
             <div className="space-y-2">
               <p className="font-medium">3. Open the browser console</p>
-              <p className="text-sm text-[var(--color-text-muted)]">
-                Right-click → Inspect Element → Console tab
-              </p>
-              <p className="text-xs text-[var(--color-text-muted)]">
-                Safari: first enable in Safari → Settings → Advanced → &quot;Show features for web developers&quot;
-              </p>
+              <div className="flex gap-2 mb-2">
+                <button
+                  onClick={() => setOsTab('mac')}
+                  className={`px-3 py-1 text-sm rounded ${osTab === 'mac' ? 'bg-[var(--color-accent)] text-white' : 'bg-[var(--color-bg-secondary)] text-[var(--color-text-muted)]'}`}
+                >
+                  Mac
+                </button>
+                <button
+                  onClick={() => setOsTab('windows')}
+                  className={`px-3 py-1 text-sm rounded ${osTab === 'windows' ? 'bg-[var(--color-accent)] text-white' : 'bg-[var(--color-bg-secondary)] text-[var(--color-text-muted)]'}`}
+                >
+                  Windows
+                </button>
+              </div>
+              {osTab === 'mac' ? (
+                <div className="text-sm text-[var(--color-text-muted)] space-y-1">
+                  <p>Right-click → Inspect Element → Console tab</p>
+                  <p className="text-xs">Safari: first enable in Safari → Settings → Advanced → &quot;Show features for web developers&quot;</p>
+                </div>
+              ) : (
+                <div className="text-sm text-[var(--color-text-muted)] space-y-1">
+                  <p>Right-click → Inspect → Console tab</p>
+                  <p className="text-xs">Or press F12, then click Console</p>
+                </div>
+              )}
             </div>
 
             {/* Step 4: Paste command */}
