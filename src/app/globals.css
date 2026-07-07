@@ -1,5 +1,11 @@
 @import "tailwindcss";
 
+:root {
+  --color-accent: #6365C0;
+  --color-accent-muted: #5156AC;
+  --color-accent-glow: rgba(99, 101, 192, 0.2);
+}
+
 @theme {
   --font-display: "Instrument Sans", system-ui, sans-serif;
   --font-body: "Instrument Sans", system-ui, sans-serif;

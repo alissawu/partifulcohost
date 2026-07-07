@@ -172,7 +172,7 @@ export function LinkPartiful({ onComplete, isNewSignup, pendingName }: LinkParti
           <>
             {/* Step 2: Open Partiful */}
             <div className="space-y-2">
-              <p className="font-medium">2. Open <a href="https://partiful.com" target="_blank" rel="noopener noreferrer" className="text-violet-400 hover:underline">partiful.com<span className="text-xs ml-0.5">↗</span></a> and make sure you&apos;re logged in</p>
+              <p className="font-medium">2. Open <a href="https://partiful.com" target="_blank" rel="noopener noreferrer" className="text-[#6365C0] hover:underline">partiful.com<span className="text-xs ml-0.5">↗</span></a> and make sure you&apos;re logged in</p>
             </div>
 
             {/* Step 3: Console */}
