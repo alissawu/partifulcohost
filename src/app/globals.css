@@ -1,0 +1,87 @@
+@import "tailwindcss";
+
+@theme {
+  --font-display: "Instrument Sans", system-ui, sans-serif;
+  --font-body: "Instrument Sans", system-ui, sans-serif;
+  
+  /* Dark theme - warm undertones */
+  --color-bg: #0d0d0f;
+  --color-bg-elevated: #161619;
+  --color-bg-card: #1c1c20;
+  --color-bg-hover: #242429;
+  
+  --color-border: #2a2a30;
+  --color-border-subtle: #1f1f24;
+  
+  --color-text: #f5f5f4;
+  --color-text-muted: #a1a1a6;
+  --color-text-faint: #6b6b70;
+  
+  /* Accents - warm coral/orange instead of generic purple */
+  --color-accent: #ff6b4a;
+  --color-accent-muted: #cc5640;
+  --color-accent-glow: rgba(255, 107, 74, 0.15);
+  
+  /* Status colors */
+  --color-approved: #4ade80;
+  --color-pending: #fbbf24;
+  --color-rejected: #f87171;
+  --color-invited: #a78bfa;
+  --color-flagged: #ff6b4a;
+  
+  /* Vote colors */
+  --color-vote-keep: #4ade80;
+  --color-vote-remove: #f87171;
+  --color-vote-unsure: #fbbf24;
+}
+
+@font-face {
+  font-family: "Instrument Sans";
+  src: url("https://fonts.gstatic.com/s/instrumentsans/v1/pximypc9vsFDm051Uf6KVwgkfoSxQ0GsQv8ToedPibnr-yp2JGEJOH9npST3-Qf1mS0v3_7Y.woff2") format("woff2");
+  font-weight: 400 700;
+  font-display: swap;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-family: var(--font-body);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--color-bg);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-border);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-text-faint);
+}
+
+/* Utilities */
+.glow-accent {
+  box-shadow: 0 0 20px var(--color-accent-glow), 0 0 40px var(--color-accent-glow);
+}
+
+.glass {
+  background: rgba(28, 28, 32, 0.8);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
