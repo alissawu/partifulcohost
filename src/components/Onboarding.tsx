@@ -7,18 +7,44 @@ import { Auth } from './Auth'
 import { LinkPartiful } from './LinkPartiful'
 import type { User } from '@supabase/supabase-js'
 
-type Step = 'auth' | 'link_partiful' | 'choose' | 'join' | 'created'
+type Step = 'auth' | 'link_partiful' | 'dashboard' | 'created'
+
+interface EventWithHost {
+  id: string
+  name: string
+  partiful_event_id: string
+  access_code: string
+  created_at: string
+  host: {
+    id: string
+    name: string
+    is_admin: boolean
+  }
+}
 
 export function Onboarding() {
   const [step, setStep] = useState<Step>('auth')
   const [user, setUser] = useState<User | null>(null)
-  const [accessCode, setAccessCode] = useState('')
-  const [loading, setLoading] = useState(false)
+  const [events, setEvents] = useState<EventWithHost[]>([])
+  const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [createdAccessCode, setCreatedAccessCode] = useState('')
 
   const { setSession, fetchGuests } = useCohostStore()
   const supabase = createClient()
+
+  // Fetch user's events
+  const fetchEvents = async (userId: string) => {
+    try {
+      const res = await fetch(`/api/events?user_id=${userId}`)
+      if (res.ok) {
+        const data = await res.json()
+        setEvents(data.events || [])
+      }
+    } catch (err) {
+      console.error('Error fetching events:', err)
+    }
+  }
 
   useEffect(() => {
     const init = async () => {
@@ -29,9 +55,15 @@ export function Onboarding() {
         if (accessCode) {
           setCreatedAccessCode(accessCode)
           localStorage.removeItem('cohost_created_access_code')
-          // Clear URL param
           window.history.replaceState({}, '', '/')
+          
+          const { data: { user } } = await supabase.auth.getUser()
+          if (user) {
+            setUser(user)
+            await fetchEvents(user.id)
+          }
           setStep('created')
+          setLoading(false)
           return
         }
       }
@@ -39,12 +71,14 @@ export function Onboarding() {
       const { data: { user } } = await supabase.auth.getUser()
       if (user) {
         setUser(user)
-        // Check if Partiful is already linked
+        await fetchEvents(user.id)
+        
+        // Check if Partiful is linked
         const res = await fetch(`/api/user/profile?user_id=${user.id}`)
         if (res.ok) {
           const data = await res.json()
           if (data.partiful_user_id) {
-            setStep('choose')
+            setStep('dashboard')
           } else {
             setStep('link_partiful')
           }
@@ -52,19 +86,19 @@ export function Onboarding() {
           setStep('link_partiful')
         }
       }
+      setLoading(false)
     }
     init()
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       setUser(session?.user ?? null)
-      // Only auto-navigate if we're on auth step and user signs in
       if (session?.user && event === 'SIGNED_IN') {
-        // Check if Partiful linked
+        await fetchEvents(session.user.id)
         const res = await fetch(`/api/user/profile?user_id=${session.user.id}`)
         if (res.ok) {
           const data = await res.json()
           if (data.partiful_user_id) {
-            setStep('choose')
+            setStep('dashboard')
           } else {
             setStep('link_partiful')
           }
@@ -75,7 +109,7 @@ export function Onboarding() {
     })
 
     return () => subscription.unsubscribe()
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   // Auth success (login or signup)
@@ -83,12 +117,12 @@ export function Onboarding() {
     const { data: { user } } = await supabase.auth.getUser()
     if (user) {
       setUser(user)
-      // Check if Partiful is linked
+      await fetchEvents(user.id)
       const res = await fetch(`/api/user/profile?user_id=${user.id}`)
       if (res.ok) {
         const data = await res.json()
         if (data.partiful_user_id) {
-          setStep('choose')
+          setStep('dashboard')
         } else {
           setStep('link_partiful')
         }
@@ -98,94 +132,36 @@ export function Onboarding() {
     }
   }
 
-  // Partiful link complete
-  const handlePartifulComplete = async (data: { partifulUserId: string; eventId: string; token: string }) => {
-    if (!user) return
-    setLoading(true)
-    setError('')
-
-    try {
-      // Link Partiful account
-      await fetch('/api/auth/partiful', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          token: data.token,
-          cohost_user_id: user.id,
-        }),
-      })
-
-      // Create event
-      const eventRes = await fetch('/api/events', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          partiful_event_id: data.eventId,
-          name: 'My Event',
-          user_id: user.id,
-          host_name: user.user_metadata?.name || user.email?.split('@')[0] || 'Host',
-        }),
-      })
-
-      const eventData = await eventRes.json()
-      if (!eventRes.ok) throw new Error(eventData.error || 'Failed to create event')
-
-      setCreatedAccessCode(eventData.access_code)
-
-      // Sync guests
-      await fetch('/api/sync/partiful', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          event_id: eventData.event.id,
-          partiful_event_id: data.eventId,
-          token: data.token,
-        }),
-      })
-
-      setSession(eventData.event, eventData.host)
-      setStep('created')
-    } catch (err) {
-      console.error('Error:', err)
-      setError(err instanceof Error ? err.message : 'Something went wrong')
-    } finally {
-      setLoading(false)
-    }
+  // Select an event to view
+  const handleSelectEvent = async (event: EventWithHost) => {
+    setSession(
+      { 
+        id: event.id, 
+        name: event.name, 
+        partiful_event_id: event.partiful_event_id, 
+        access_code: event.access_code,
+        date: null,
+        created_at: event.created_at,
+        updated_at: event.created_at,
+      },
+      { 
+        id: event.host.id, 
+        event_id: event.id,
+        name: event.host.name, 
+        email: null,
+        is_admin: event.host.is_admin,
+        created_at: event.created_at,
+      }
+    )
+    await fetchGuests()
   }
 
-  const handleJoin = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!user) return
-    setLoading(true)
-    setError('')
-
-    try {
-      const res = await fetch('/api/events/join', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          access_code: accessCode.trim(),
-          user_id: user.id,
-          host_name: user.user_metadata?.name || user.email?.split('@')[0] || 'Host',
-        }),
-      })
-
-      const data = await res.json()
-      if (!res.ok) {
-        if (data.code === 'PARTIFUL_NOT_LINKED') {
-          setStep('link_partiful')
-          return
-        }
-        throw new Error(data.error || 'Failed to join event')
-      }
-
-      setSession(data.event, data.host)
-      await fetchGuests()
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Something went wrong')
-    } finally {
-      setLoading(false)
-    }
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-[var(--color-bg)] flex items-center justify-center">
+        <div className="text-[var(--color-text-muted)]">Loading...</div>
+      </div>
+    )
   }
 
   if (step === 'auth') {
@@ -201,41 +177,15 @@ export function Onboarding() {
   if (step === 'link_partiful') {
     return (
       <LinkPartiful 
-        onComplete={handlePartifulComplete}
+        onComplete={async () => {
+          // Callback page handles everything, this is just for the original tab
+          if (user) {
+            await fetchEvents(user.id)
+            setStep('dashboard')
+          }
+        }}
         userName={user?.user_metadata?.name}
       />
-    )
-  }
-
-  if (step === 'choose') {
-    return (
-      <div className="min-h-screen bg-[var(--color-bg)] flex flex-col items-center justify-center p-4">
-        <h1 className="text-2xl font-semibold mb-2">Hey {user?.user_metadata?.name || 'there'}</h1>
-        <p className="text-[var(--color-text-muted)] mb-8">What would you like to do?</p>
-        
-        <div className="flex flex-col gap-3 w-full max-w-sm">
-          <button
-            onClick={() => setStep('link_partiful')}
-            className="w-full py-4 bg-[#8B5BA5] text-white rounded-lg font-medium hover:opacity-90 transition-opacity"
-          >
-            Add new event
-          </button>
-          <button
-            onClick={() => setStep('join')}
-            className="w-full py-4 bg-[var(--color-bg-secondary)] border border-[var(--color-border)] rounded-lg font-medium hover:bg-[var(--color-bg-tertiary)] transition-colors"
-          >
-            Join with access code
-          </button>
-          <button
-            onClick={() => supabase.auth.signOut()}
-            className="text-sm text-[var(--color-text-muted)] hover:text-[var(--color-text)] mt-4"
-          >
-            Sign out
-          </button>
-        </div>
-        
-        {error && <p className="text-red-500 text-sm mt-4">{error}</p>}
-      </div>
     )
   }
 
@@ -264,8 +214,14 @@ export function Onboarding() {
         </button>
         
         <button
-          onClick={async () => {
-            await fetchGuests()
+          onClick={() => {
+            // Find the event we just created and select it
+            const createdEvent = events.find(e => e.access_code === createdAccessCode)
+            if (createdEvent) {
+              handleSelectEvent(createdEvent)
+            } else {
+              setStep('dashboard')
+            }
           }}
           className="px-6 py-3 bg-[#8B5BA5] text-white rounded-lg font-medium hover:opacity-90 transition-opacity"
         >
@@ -275,38 +231,69 @@ export function Onboarding() {
     )
   }
 
-  // Join step
+  // Dashboard - show user's events
   return (
-    <div className="min-h-screen bg-[var(--color-bg)] flex flex-col items-center justify-center p-4">
-      <button
-        onClick={() => setStep('choose')}
-        className="absolute top-4 left-4 text-[var(--color-text-muted)] hover:text-[var(--color-text)]"
-      >
-        ← Back
-      </button>
-      
-      <h1 className="text-2xl font-semibold mb-8">Join event</h1>
-      
-      <form onSubmit={handleJoin} className="w-full max-w-sm space-y-4">
-        <input
-          type="text"
-          placeholder="Access code"
-          value={accessCode}
-          onChange={(e) => setAccessCode(e.target.value)}
-          required
-          className="w-full px-4 py-3 bg-[var(--color-bg-secondary)] border border-[var(--color-border)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#8B5BA5] font-mono text-center text-lg tracking-wider"
-        />
+    <div className="min-h-screen bg-[var(--color-bg)] flex flex-col items-center p-4 pt-16">
+      <div className="w-full max-w-lg">
+        <div className="flex items-center justify-between mb-8">
+          <div>
+            <h1 className="text-2xl font-semibold">Your Events</h1>
+            <p className="text-[var(--color-text-muted)] text-sm">
+              {events.length === 0 ? 'No events yet' : `${events.length} event${events.length === 1 ? '' : 's'}`}
+            </p>
+          </div>
+          <button
+            onClick={() => supabase.auth.signOut()}
+            className="text-sm text-[var(--color-text-muted)] hover:text-[var(--color-text)]"
+          >
+            Sign out
+          </button>
+        </div>
 
-        {error && <p className="text-red-500 text-sm">{error}</p>}
+        {events.length === 0 ? (
+          <div className="text-center py-12">
+            <p className="text-[var(--color-text-muted)] mb-6">Add your first event to get started</p>
+            <button
+              onClick={() => setStep('link_partiful')}
+              className="px-6 py-3 bg-[#8B5BA5] text-white rounded-lg font-medium hover:opacity-90 transition-opacity"
+            >
+              Add event
+            </button>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {events.map((event) => (
+              <button
+                key={event.id}
+                onClick={() => handleSelectEvent(event)}
+                className="w-full bg-[var(--color-bg-card)] border border-[var(--color-border)] rounded-xl p-4 text-left hover:border-[#8B5BA5]/50 transition-colors"
+              >
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-[#8B5BA5] to-[#6B4A85] flex items-center justify-center text-white text-lg">
+                    🎉
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium truncate">{event.name}</p>
+                    <p className="text-sm text-[var(--color-text-muted)]">
+                      Code: {event.access_code}
+                    </p>
+                  </div>
+                  <div className="text-[var(--color-text-muted)]">→</div>
+                </div>
+              </button>
+            ))}
+            
+            <button
+              onClick={() => setStep('link_partiful')}
+              className="w-full border border-dashed border-[var(--color-border)] rounded-xl p-4 text-[var(--color-text-muted)] hover:border-[#8B5BA5]/50 hover:text-[var(--color-text)] transition-colors"
+            >
+              + Add another event
+            </button>
+          </div>
+        )}
 
-        <button
-          type="submit"
-          disabled={loading}
-          className="w-full py-3 bg-[#8B5BA5] text-white rounded-lg font-medium hover:opacity-90 transition-opacity disabled:opacity-50"
-        >
-          {loading ? 'Joining...' : 'Join'}
-        </button>
-      </form>
+        {error && <p className="text-red-500 text-sm mt-4 text-center">{error}</p>}
+      </div>
     </div>
   )
 }
