@@ -120,17 +120,19 @@ export async function POST(request: NextRequest) {
       const pageGuests = data.result?.data || []
       
       for (const g of pageGuests) {
-        // Photo can be an object with size variants or a string URL
+        // Photo structure: { url, upload: { url, path } }
+        // Use Imgix thumbnail for faster loading (same as Partiful UI)
         let photoUrl: string | null = null
         if (g.user?.photo) {
-          if (typeof g.user.photo === 'string') {
+          if (g.user.photo.upload?.path) {
+            // Use Imgix CDN thumbnail - smaller, faster
+            photoUrl = `https://partiful.imgix.net/${g.user.photo.upload.path}_thumbnail?fit=clip&w=80&auto=format`
+          } else if (g.user.photo.url) {
+            photoUrl = g.user.photo.url
+          } else if (g.user.photo.upload?.url) {
+            photoUrl = g.user.photo.upload.url
+          } else if (typeof g.user.photo === 'string') {
             photoUrl = g.user.photo
-          } else if (g.user.photo.medium) {
-            photoUrl = g.user.photo.medium
-          } else if (g.user.photo.small) {
-            photoUrl = g.user.photo.small
-          } else if (g.user.photo.large) {
-            photoUrl = g.user.photo.large
           }
         }
         
