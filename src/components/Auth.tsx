@@ -1,19 +1,17 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 
 type Mode = 'login' | 'signup'
 
 interface AuthProps {
   onSuccess: () => void
-  onSignupContinue: (data: { email: string; password: string; name: string }) => void
 }
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-const PENDING_SIGNUP_KEY = 'cohost_pending_signup'
 
-export function Auth({ onSuccess, onSignupContinue }: AuthProps) {
+export function Auth({ onSuccess }: AuthProps) {
   const [mode, setMode] = useState<Mode>('login')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -22,11 +20,6 @@ export function Auth({ onSuccess, onSignupContinue }: AuthProps) {
   const [error, setError] = useState('')
 
   const supabase = createClient()
-
-  // Clear any stale pending signup when landing on auth page
-  useEffect(() => {
-    sessionStorage.removeItem(PENDING_SIGNUP_KEY)
-  }, [])
 
   const validateEmail = (email: string): boolean => {
     return EMAIL_REGEX.test(email)
@@ -76,7 +69,21 @@ export function Auth({ onSuccess, onSignupContinue }: AuthProps) {
           setLoading(false)
           return
         }
-        onSignupContinue({ email, password, name })
+        
+        // Create account immediately
+        const { error: signUpError } = await supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            data: { name }
+          }
+        })
+        
+        if (signUpError) {
+          throw signUpError
+        }
+        
+        onSuccess()
       } else {
         if (!exists) {
           setMode('signup')
@@ -105,7 +112,6 @@ export function Auth({ onSuccess, onSignupContinue }: AuthProps) {
     } catch (err) {
       console.error('Auth error:', err)
       setError(err instanceof Error ? err.message : 'Something went wrong')
-    } finally {
       setLoading(false)
     }
   }
@@ -173,7 +179,7 @@ export function Auth({ onSuccess, onSignupContinue }: AuthProps) {
           disabled={loading}
           className="w-full py-3 bg-[#8B5BA5] text-white rounded-lg font-medium hover:opacity-90 transition-opacity disabled:opacity-50"
         >
-          {loading ? '...' : mode === 'login' ? 'Log in' : 'Continue →'}
+          {loading ? '...' : mode === 'login' ? 'Log in' : 'Sign up'}
         </button>
       </form>
     </div>
