@@ -51,13 +51,24 @@ function extractValue(val: FirestoreValue | undefined): unknown {
 }
 
 function normalizeStatus(status: string): string {
-  const s = status.toLowerCase().replace(/_/g, ' ')
-  if (s.includes('approved') || s === 'going') return 'approved'
-  if (s.includes('pending')) return 'pending'
-  if (s.includes('waitlist')) return 'waitlist'
-  if (s.includes('rejected') || s.includes('declined')) return 'rejected'
-  if (s.includes('invited')) return 'invited'
-  if (s.includes('cant') || s.includes("can't")) return 'cant_go'
+  const s = status.toUpperCase()
+  // Exact matches first
+  if (s === 'APPROVED' || s === 'GOING') return 'approved'
+  if (s === 'PENDING_APPROVAL' || s === 'PENDING') return 'pending'
+  if (s === 'INVITED') return 'invited'
+  if (s === 'WAITLISTED' || s === 'WAITLIST') return 'waitlist'
+  if (s === 'REJECTED' || s === 'DECLINED' || s === 'NOT_APPROVED') return 'rejected'
+  if (s === 'CANT_GO' || s === 'NOT_GOING') return 'cant_go'
+  
+  // Fallback partial matches
+  if (s.includes('APPROVED') || s.includes('GOING')) return 'approved'
+  if (s.includes('PENDING')) return 'pending'
+  if (s.includes('INVITED')) return 'invited'
+  if (s.includes('WAITLIST')) return 'waitlist'
+  if (s.includes('REJECT') || s.includes('DECLINE')) return 'rejected'
+  if (s.includes('CANT') || s.includes('NOT_GOING')) return 'cant_go'
+  
+  console.warn('Unknown Partiful status:', status)
   return 'pending'
 }
 
@@ -106,9 +117,30 @@ export async function POST(request: NextRequest) {
           const status = extractValue(fields.status) as string || 'PENDING'
           const rsvpDate = extractValue(fields.rsvpDate) as string || null
           
-          // Try to get photo from user reference if available
-          const user = extractValue(fields.user) as Record<string, unknown> | null
-          const photo = user?.photo as string || null
+          // Log first few guests for debugging
+          if (guests.length < 3) {
+            console.log('Guest fields:', JSON.stringify(Object.keys(fields)))
+            console.log('Guest status raw:', fields.status)
+            console.log('Guest user field:', fields.user)
+          }
+          
+          // Try multiple places for photo
+          let photo: string | null = null
+          
+          // Direct photo field on guest
+          if (fields.photo) {
+            photo = extractValue(fields.photo) as string || null
+          }
+          // Photo URL field
+          if (!photo && fields.photoUrl) {
+            photo = extractValue(fields.photoUrl) as string || null
+          }
+          // User object might have photo
+          if (!photo && fields.user) {
+            const user = extractValue(fields.user) as Record<string, unknown> | null
+            if (user?.photo) photo = user.photo as string
+            if (!photo && user?.photoUrl) photo = user.photoUrl as string
+          }
 
           guests.push({
             id: docId,
