@@ -17,20 +17,6 @@ interface FirestoreDocument {
   updateTime: string
 }
 
-interface PartifulGuestsRequestBody {
-  data: {
-    params: {
-      eventId: string
-      includeInvitedGuests: boolean
-    }
-    paging: {
-      cursor: string | null
-      maxResults: number
-    }
-    userId: null
-  }
-}
-
 function extractValue(val: FirestoreValue | undefined): unknown {
   if (!val) return null
   if (val.stringValue !== undefined) return val.stringValue
@@ -74,6 +60,138 @@ function normalizeStatus(status: string | null | undefined): string {
   return 'invited' // Default to invited if unknown
 }
 
+// Extract user ID from Firestore reference like "projects/getpartiful/databases/(default)/documents/users/abc123"
+function extractUserId(ref: string | null | undefined): string | null {
+  if (!ref) return null
+  const match = ref.match(/\/users\/([^/]+)$/)
+  return match ? match[1] : null
+}
+
+// Fetch guests from public API (only APPROVED guests)
+async function fetchPublicGuests(eventId: string): Promise<Array<{
+  id: string
+  name: string
+  status: string | null
+  rsvpDate?: string
+  userId?: string
+}>> {
+  const guests: Array<{
+    id: string
+    name: string
+    status: string | null
+    rsvpDate?: string
+    userId?: string
+  }> = []
+  
+  let cursor: string | null = null
+  
+  // eslint-disable-next-line no-constant-condition
+  while (true) {
+    const res: Response = await fetch('https://api.partiful.com/getGuests', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Origin': 'https://partiful.com',
+        'Referer': 'https://partiful.com/',
+      },
+      body: JSON.stringify({
+        data: {
+          params: {
+            eventId,
+            includeInvitedGuests: true,
+          },
+          paging: {
+            cursor,
+            maxResults: 500,
+          },
+          userId: null,
+        },
+      }),
+    })
+
+    if (!res.ok) break
+
+    const data = await res.json()
+    const pageGuests = data.result?.data || []
+    
+    for (const g of pageGuests) {
+      guests.push({
+        id: g.user?.id || g.id,
+        name: g.user?.name || g.name || 'Unknown',
+        status: g.status,
+        rsvpDate: g.rsvpDate,
+        userId: g.user?.id,
+      })
+    }
+    
+    cursor = data.result?.paging?.nextCursor || null
+    if (!cursor) break
+  }
+  
+  return guests
+}
+
+// Fetch user photos from Partiful API
+async function fetchUserPhotos(userIds: string[]): Promise<Map<string, string>> {
+  const photoMap = new Map<string, string>()
+  
+  if (userIds.length === 0) return photoMap
+  
+  // Batch in groups of 100
+  const batchSize = 100
+  for (let i = 0; i < userIds.length; i += batchSize) {
+    const batch = userIds.slice(i, i + batchSize)
+    
+    try {
+      const res = await fetch('https://api.partiful.com/getUsers', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Origin': 'https://partiful.com',
+          'Referer': 'https://partiful.com/',
+        },
+        body: JSON.stringify({
+          data: {
+            userIds: batch,
+          },
+        }),
+      })
+      
+      if (!res.ok) {
+        console.error('getUsers API error:', res.status)
+        continue
+      }
+      
+      const data = await res.json()
+      const users = data.result?.data || []
+      
+      for (const user of users) {
+        if (!user.id) continue
+        
+        let photoUrl: string | null = null
+        if (user.photo) {
+          if (user.photo.upload?.path) {
+            // Use Imgix CDN thumbnail
+            photoUrl = `https://partiful.imgix.net/${user.photo.upload.path}_thumbnail?fit=clip&w=80&auto=format`
+          } else if (user.photo.url) {
+            photoUrl = user.photo.url
+          } else if (user.photo.upload?.url) {
+            photoUrl = user.photo.upload.url
+          }
+        }
+        
+        if (photoUrl) {
+          photoMap.set(user.id, photoUrl)
+        }
+      }
+    } catch (err) {
+      console.error('Error fetching user photos batch:', err)
+    }
+  }
+  
+  return photoMap
+}
+
 export async function POST(request: NextRequest) {
   try {
     const { event_id, partiful_event_id, token } = await request.json()
@@ -82,12 +200,17 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Missing event_id or partiful_event_id' }, { status: 400 })
     }
 
-    const guests: Array<{ id: string; name: string; status: string | null; rsvpDate?: string; photo?: string }> = []
-    const photoMap = new Map<string, string>() // id -> photo URL
+    const guests: Array<{ 
+      id: string
+      name: string
+      status: string | null
+      rsvpDate?: string
+      userId?: string // Partiful user ID for photo lookup
+    }> = []
 
-    // Step 1: If we have a token, use Firestore to get ALL guests (including PENDING, INVITED)
+    // Step 1: Fetch all guests from Firestore (needs token)
     if (token) {
-      console.log('Using Firestore with token for full guest list...')
+      console.log('Fetching guests from Firestore...')
       let nextPageToken: string | null = null
       
       do {
@@ -119,13 +242,15 @@ export async function POST(request: NextRequest) {
           const name = extractValue(fields.name) as string || 'Unknown'
           const status = extractValue(fields.status) as string || null
           const rsvpDate = extractValue(fields.rsvpDate) as string || null
+          const userRef = extractValue(fields.user) as string || null
+          const userId = extractUserId(userRef)
           
           guests.push({
             id: docId,
             name,
             status,
             rsvpDate: rsvpDate || undefined,
-            photo: undefined, // Will be filled from public API
+            userId: userId || undefined,
           })
         }
 
@@ -135,101 +260,31 @@ export async function POST(request: NextRequest) {
       console.log(`Firestore returned ${guests.length} guests`)
     }
 
-    // Step 2: Get photos from public API (only has APPROVED guests, but that's where photos are)
-    let cursor: string | null = null
-    
-    do {
-      const body: PartifulGuestsRequestBody = {
-        data: {
-          params: {
-            eventId: partiful_event_id,
-            includeInvitedGuests: true,
-          },
-          paging: {
-            cursor,
-            maxResults: 500,
-          },
-          userId: null,
-        },
-      }
-
-      const res = await fetch('https://api.partiful.com/getGuests', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Origin': 'https://partiful.com',
-          'Referer': 'https://partiful.com/',
-        },
-        body: JSON.stringify(body),
-      })
-
-      if (!res.ok) {
-        console.log('Public API failed with status:', res.status)
-        break
-      }
-
-      const data = await res.json()
-      const pageGuests = data.result?.data || []
-      
-      for (const g of pageGuests) {
-        const id = g.user?.id || g.id
-        
-        // Extract photo URL
-        let photoUrl: string | null = null
-        if (g.user?.photo) {
-          if (g.user.photo.upload?.path) {
-            // Use Imgix CDN thumbnail - smaller, faster
-            photoUrl = `https://partiful.imgix.net/${g.user.photo.upload.path}_thumbnail?fit=clip&w=80&auto=format`
-          } else if (g.user.photo.url) {
-            photoUrl = g.user.photo.url
-          } else if (g.user.photo.upload?.url) {
-            photoUrl = g.user.photo.upload.url
-          }
-        }
-        
-        if (photoUrl) {
-          photoMap.set(id, photoUrl)
-        }
-        
-        // If we didn't get guests from Firestore, use public API as source
-        if (guests.length === 0) {
-          guests.push({
-            id,
-            name: g.user?.name || g.name || 'Unknown',
-            status: g.status,
-            rsvpDate: g.rsvpDate,
-            photo: photoUrl || undefined,
-          })
-        }
-      }
-      
-      cursor = data.result?.paging?.nextCursor || null
-    } while (cursor)
-    
-    console.log(`Public API returned ${photoMap.size} photos`)
-
-    // Step 3: Merge photos into Firestore guests
-    if (guests.length > 0 && photoMap.size > 0) {
-      for (const guest of guests) {
-        const photo = photoMap.get(guest.id)
-        if (photo) {
-          guest.photo = photo
-        }
-      }
+    // If no token or Firestore failed, fall back to public API (only APPROVED)
+    if (guests.length === 0) {
+      console.log('No Firestore data, falling back to public API...')
+      const publicGuests = await fetchPublicGuests(partiful_event_id)
+      guests.push(...publicGuests)
     }
 
     if (guests.length === 0) {
       return NextResponse.json({ imported: 0, total_from_partiful: 0 })
     }
 
+    // Step 2: Fetch photos for all users via getUsers API
+    const userIds = guests.map(g => g.userId).filter((id): id is string => !!id)
+    console.log(`Fetching photos for ${userIds.length} users...`)
+    const photoMap = await fetchUserPhotos(userIds)
+    console.log(`Got ${photoMap.size} photos`)
+
     const supabase = createServiceClient()
 
-    // Upsert guests
+    // Upsert guests with photos
     const guestRows = guests.map((g) => ({
       event_id,
       partiful_id: g.id,
       name: g.name,
-      photo: g.photo || null,
+      photo: (g.userId ? photoMap.get(g.userId) : null) || null,
       partiful_status: normalizeStatus(g.status),
       rsvp_timestamp: g.rsvpDate ? new Date(g.rsvpDate).toISOString() : null,
     }))
@@ -251,10 +306,12 @@ export async function POST(request: NextRequest) {
       acc[g.partiful_status] = (acc[g.partiful_status] || 0) + 1
       return acc
     }, {} as Record<string, number>)
+    
+    const withPhotos = guestRows.filter(g => g.photo).length
 
     return NextResponse.json({ 
       imported: guestRows.length, 
-      photos: photoMap.size,
+      photos: withPhotos,
       statuses: statusCounts,
     })
   } catch (error) {
