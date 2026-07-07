@@ -122,8 +122,19 @@ export function LinkPartiful({ onComplete }: LinkPartifulProps) {
     )
   }
 
+  const handleSignOut = async () => {
+    await supabase.auth.signOut()
+    window.location.href = '/'
+  }
+
   return (
     <div className="min-h-screen bg-[var(--color-bg)] flex flex-col items-center justify-center p-4">
+      <button
+        onClick={handleSignOut}
+        className="absolute top-4 right-4 text-sm text-[var(--color-text-muted)] hover:text-[var(--color-text)]"
+      >
+        Sign out
+      </button>
       <h1 className="text-2xl font-semibold mb-2">Connect your event</h1>
       <p className="text-[var(--color-text-muted)] mb-8 text-center max-w-md">
         We&apos;ll verify you&apos;re a host and sync the guest list with real names
