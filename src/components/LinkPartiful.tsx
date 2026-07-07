@@ -158,7 +158,10 @@ export function LinkPartiful({ onComplete }: LinkPartifulProps) {
             <div className="space-y-2">
               <p className="font-medium">3. Open the browser console</p>
               <p className="text-sm text-[var(--color-text-muted)]">
-                Right-click anywhere → Inspect → Console tab
+                Right-click → Inspect Element → Console tab
+              </p>
+              <p className="text-xs text-[var(--color-text-muted)]">
+                Safari: first enable in Safari → Settings → Advanced → &quot;Show features for web developers&quot;
               </p>
             </div>
 
