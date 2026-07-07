@@ -57,7 +57,8 @@ export function Onboarding() {
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       setUser(session?.user ?? null)
-      if (session?.user && step === 'auth') {
+      // Only auto-navigate if we're on auth step and user signs in
+      if (session?.user && event === 'SIGNED_IN') {
         // Check if Partiful linked
         const res = await fetch(`/api/user/profile?user_id=${session.user.id}`)
         if (res.ok) {
@@ -74,7 +75,8 @@ export function Onboarding() {
     })
 
     return () => subscription.unsubscribe()
-  }, [supabase.auth, step])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   // Auth success (login or signup)
   const handleAuthSuccess = async () => {
