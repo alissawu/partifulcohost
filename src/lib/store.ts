@@ -8,7 +8,7 @@ import type {
   HostVote 
 } from '@/types'
 
-interface CosignState {
+interface CohostState {
   event: DbEvent | null
   currentHost: DbHost | null
   hosts: DbHost[]
@@ -36,7 +36,19 @@ interface CosignState {
   submitComment: (guestId: string, text: string) => Promise<void>
 }
 
-export const useCosignStore = create<CosignState>()(
+const STORE_KEY = 'cohost-session'
+const LEGACY_STORE_KEY = 'cosign-session'
+
+if (typeof window !== 'undefined') {
+  const currentSession = window.localStorage.getItem(STORE_KEY)
+  const legacySession = window.localStorage.getItem(LEGACY_STORE_KEY)
+
+  if (!currentSession && legacySession) {
+    window.localStorage.setItem(STORE_KEY, legacySession)
+  }
+}
+
+export const useCohostStore = create<CohostState>()(
   persist(
     (set, get) => ({
       event: null,
@@ -215,7 +227,7 @@ export const useCosignStore = create<CosignState>()(
       },
     }),
     {
-      name: 'cosign-session',
+      name: STORE_KEY,
       partialize: (state) => ({
         event: state.event,
         currentHost: state.currentHost,

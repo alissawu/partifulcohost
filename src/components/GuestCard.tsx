@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { useCosignStore } from '@/lib/store'
+import { useCohostStore } from '@/lib/store'
 import type { GuestWithDetails, PartifulStatus, HostVote } from '@/types'
 
 const STATUS_COLORS: Record<PartifulStatus, string> = {
@@ -46,7 +46,7 @@ interface Props {
 export function GuestCard({ guest }: Props) {
   const [expanded, setExpanded] = useState(false)
   const [commentText, setCommentText] = useState('')
-  const { currentHost, submitVote, submitFlag, submitComment } = useCosignStore()
+  const { currentHost, submitVote, submitFlag, submitComment } = useCohostStore()
   
   const myVote = guest.votes.find(v => v.host_id === currentHost?.id)?.vote
   

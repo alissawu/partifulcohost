@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useCosignStore } from '@/lib/store'
+import { useCohostStore } from '@/lib/store'
 import { GuestCard } from '@/components/GuestCard'
 import { Onboarding } from '@/components/Onboarding'
 import type { PartifulStatus } from '@/types'
@@ -39,7 +39,7 @@ export default function Home() {
     setSearchQuery,
     fetchGuests,
     clearSession,
-  } = useCosignStore()
+  } = useCohostStore()
   
   const [showImport, setShowImport] = useState(false)
   const [importJson, setImportJson] = useState('')
@@ -49,7 +49,8 @@ export default function Home() {
   
   // Wait for hydration
   useEffect(() => {
-    setHydrated(true)
+    const timeout = window.setTimeout(() => setHydrated(true), 0)
+    return () => window.clearTimeout(timeout)
   }, [])
   
   // Fetch guests when event is set
@@ -117,10 +118,10 @@ export default function Home() {
       }
       
       // Handle different formats
-      let guests = Array.isArray(guestData) ? guestData : 
-                   guestData.result?.data ? guestData.result.data :
-                   guestData.guests ? guestData.guests :
-                   guestData.data ? guestData.data : []
+      const guests = Array.isArray(guestData) ? guestData :
+                     guestData.result?.data ? guestData.result.data :
+                     guestData.guests ? guestData.guests :
+                     guestData.data ? guestData.data : []
       
       if (!Array.isArray(guests) || guests.length === 0) {
         throw new Error('No guests found in data')
@@ -180,7 +181,7 @@ export default function Home() {
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-xl font-semibold text-[var(--color-text-primary)]">
-                <span className="text-[var(--color-accent)]">co</span>sign
+                <span className="text-[var(--color-accent)]">co</span>host
               </h1>
               <p className="text-sm text-[var(--color-text-muted)]">
                 {event.name}

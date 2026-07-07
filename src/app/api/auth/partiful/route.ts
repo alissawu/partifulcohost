@@ -4,9 +4,10 @@ import { createServiceClient } from '@/lib/supabase/server'
 // Verify a Partiful Firebase token and link to user account
 export async function POST(request: NextRequest) {
   try {
-    const { token, cosign_user_id } = await request.json()
+    const { token, cohost_user_id, cosign_user_id } = await request.json()
+    const userId = cohost_user_id || cosign_user_id
 
-    if (!token || !cosign_user_id) {
+    if (!token || !userId) {
       return NextResponse.json({ error: 'Missing token or user_id' }, { status: 400 })
     }
 
@@ -34,7 +35,7 @@ export async function POST(request: NextRequest) {
       .eq('partiful_user_id', partiful_user_id)
       .single()
 
-    if (existing && existing.user_id !== cosign_user_id) {
+    if (existing && existing.user_id !== userId) {
       return NextResponse.json({ 
         error: 'This Partiful account is already linked to another user' 
       }, { status: 409 })
@@ -44,7 +45,7 @@ export async function POST(request: NextRequest) {
     const { error: upsertError } = await supabase
       .from('user_profiles')
       .upsert({
-        user_id: cosign_user_id,
+        user_id: userId,
         partiful_user_id,
         partiful_name: payload.name || null,
         updated_at: new Date().toISOString(),

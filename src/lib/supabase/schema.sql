@@ -1,4 +1,4 @@
--- Cosign Database Schema
+-- Partiful Cohost Database Schema
 
 -- Events table (links to Partiful events)
 create table events (

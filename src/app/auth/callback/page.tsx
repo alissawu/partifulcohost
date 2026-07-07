@@ -36,7 +36,7 @@ export default function AuthCallback() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             token,
-            cosign_user_id: user.id,
+            cohost_user_id: user.id,
           }),
         })
 

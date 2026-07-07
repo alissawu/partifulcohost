@@ -72,7 +72,7 @@ export interface EventWithHosts extends DbEvent {
 }
 
 // Session types
-export interface CosignSession {
+export interface CohostSession {
   event_id: string
   host_id: string
   host_name: string

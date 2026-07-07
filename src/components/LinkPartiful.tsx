@@ -7,6 +7,9 @@ interface LinkPartifulProps {
   onComplete: (data: { partifulUserId: string; eventId: string; token: string }) => void
 }
 
+const PENDING_EVENT_URL_KEY = 'cohost_pending_event_url'
+const LEGACY_PENDING_EVENT_URL_KEY = 'cosign_pending_event_url'
+
 export function LinkPartiful({ onComplete }: LinkPartifulProps) {
   const [eventUrl, setEventUrl] = useState('')
   const [checking, setChecking] = useState(false)
@@ -51,7 +54,9 @@ export function LinkPartiful({ onComplete }: LinkPartifulProps) {
         }
 
         // Get event ID from stored URL
-        const storedEventUrl = localStorage.getItem('cosign_pending_event_url')
+        const storedEventUrl =
+          localStorage.getItem(PENDING_EVENT_URL_KEY) ||
+          localStorage.getItem(LEGACY_PENDING_EVENT_URL_KEY)
         const eventId = storedEventUrl ? extractEventId(storedEventUrl) : null
         
         if (!eventId) {
@@ -67,7 +72,7 @@ export function LinkPartiful({ onComplete }: LinkPartifulProps) {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               token,
-              cosign_user_id: user.id,
+              cohost_user_id: user.id,
             }),
           })
 
@@ -76,7 +81,8 @@ export function LinkPartiful({ onComplete }: LinkPartifulProps) {
             throw new Error(data.error || 'Failed to link account')
           }
 
-          localStorage.removeItem('cosign_pending_event_url')
+          localStorage.removeItem(PENDING_EVENT_URL_KEY)
+          localStorage.removeItem(LEGACY_PENDING_EVENT_URL_KEY)
           onComplete({ 
             partifulUserId: data.partiful_user_id, 
             eventId,
@@ -100,7 +106,7 @@ export function LinkPartiful({ onComplete }: LinkPartifulProps) {
       return
     }
     // Store event URL for after redirect
-    localStorage.setItem('cosign_pending_event_url', eventUrl)
+    localStorage.setItem(PENDING_EVENT_URL_KEY, eventUrl)
     setError('')
   }
 
@@ -119,7 +125,7 @@ export function LinkPartiful({ onComplete }: LinkPartifulProps) {
     <div className="min-h-screen bg-[var(--color-bg)] flex flex-col items-center justify-center p-4">
       <h1 className="text-2xl font-semibold mb-2">Connect your event</h1>
       <p className="text-[var(--color-text-muted)] mb-8 text-center max-w-md">
-        We'll verify you're a host and sync the guest list with real names
+        We&apos;ll verify you&apos;re a host and sync the guest list with real names
       </p>
 
       <div className="w-full max-w-md space-y-6">
@@ -145,7 +151,7 @@ export function LinkPartiful({ onComplete }: LinkPartifulProps) {
           <>
             {/* Step 2: Open Partiful */}
             <div className="space-y-2">
-              <p className="font-medium">2. Open partiful.com and make sure you're logged in</p>
+              <p className="font-medium">2. Open partiful.com and make sure you&apos;re logged in</p>
             </div>
 
             {/* Step 3: Console */}

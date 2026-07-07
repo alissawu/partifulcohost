@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { useCosignStore } from '@/lib/store'
+import { useCohostStore } from '@/lib/store'
 import { Auth } from './Auth'
 import { LinkPartiful } from './LinkPartiful'
 import type { User } from '@supabase/supabase-js'
@@ -12,13 +12,12 @@ type Step = 'auth' | 'link_partiful' | 'choose' | 'join' | 'created'
 export function Onboarding() {
   const [step, setStep] = useState<Step>('auth')
   const [user, setUser] = useState<User | null>(null)
-  const [partifulLinked, setPartifulLinked] = useState(false)
   const [accessCode, setAccessCode] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [createdAccessCode, setCreatedAccessCode] = useState('')
 
-  const { setSession, fetchGuests } = useCosignStore()
+  const { setSession, fetchGuests } = useCohostStore()
   const supabase = createClient()
 
   useEffect(() => {
@@ -31,7 +30,6 @@ export function Onboarding() {
         if (res.ok) {
           const data = await res.json()
           if (data.partiful_user_id) {
-            setPartifulLinked(true)
             setStep('choose')
           } else {
             setStep('link_partiful')
@@ -51,7 +49,6 @@ export function Onboarding() {
         if (res.ok) {
           const data = await res.json()
           if (data.partiful_user_id) {
-            setPartifulLinked(true)
             setStep('choose')
           } else {
             setStep('link_partiful')
@@ -80,7 +77,6 @@ export function Onboarding() {
   // Combined handler: link Partiful + create event + sync guests with token
   const handlePartifulComplete = async (data: { partifulUserId: string; eventId: string; token: string }) => {
     if (!user) return
-    setPartifulLinked(true)
     
     try {
       // Create the event
@@ -158,7 +154,7 @@ export function Onboarding() {
   if (step === 'auth') {
     return (
       <div className="min-h-screen bg-[var(--color-bg)] flex flex-col items-center justify-center p-4">
-        <h1 className="text-2xl font-semibold mb-2">Cosign</h1>
+        <h1 className="text-2xl font-semibold mb-2">Partiful Cohost</h1>
         <p className="text-[var(--color-text-muted)] mb-8">Multi-host guest vetting</p>
         <Auth onSuccess={handleAuthSuccess} />
       </div>

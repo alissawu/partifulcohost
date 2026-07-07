@@ -17,6 +17,20 @@ interface FirestoreDocument {
   updateTime: string
 }
 
+interface PartifulGuestsRequestBody {
+  data: {
+    params: {
+      eventId: string
+      includeInvitedGuests: boolean
+    }
+    paging: {
+      cursor: string | null
+      maxResults: number
+    }
+    userId: null
+  }
+}
+
 function extractValue(val: FirestoreValue | undefined): unknown {
   if (!val) return null
   if (val.stringValue !== undefined) return val.stringValue
@@ -55,7 +69,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Missing event_id or partiful_event_id' }, { status: 400 })
     }
 
-    let guests: Array<{ id: string; name: string; status: string; rsvpDate?: string; photo?: string }> = []
+    const guests: Array<{ id: string; name: string; status: string; rsvpDate?: string; photo?: string }> = []
 
     // If we have a token, use Firestore REST API for full names
     if (token) {
@@ -114,7 +128,7 @@ export async function POST(request: NextRequest) {
       let cursor: string | null = null
       
       do {
-        const body = {
+        const body: PartifulGuestsRequestBody = {
           data: {
             params: {
               eventId: partiful_event_id,

@@ -1,12 +1,12 @@
-# Cosign
+# Partiful Cohost
 
 Multi-host guest vetting for Partiful events. Coordinate with your co-hosts on who to approve.
 
 ## Setup
 
 ```bash
-git clone https://github.com/alissawu/partifulcosign.git
-cd partifulcosign
+git clone https://github.com/alissawu/partifulcohost.git
+cd partifulcohost
 bun install
 cp .env.example .env
 # fill in your Supabase credentials in .env

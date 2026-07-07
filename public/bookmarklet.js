@@ -1,8 +1,8 @@
-// Cosign Bookmarklet - Run on your Partiful event guest list page
+// Partiful Cohost Bookmarklet - Run on your Partiful event guest list page
 // This intercepts Partiful API calls or scrapes the DOM to extract guest data
 
 (async function() {
-  const COSIGN_API = 'REPLACE_WITH_YOUR_URL/api/sync/import';
+  const COHOST_API = 'REPLACE_WITH_YOUR_URL/api/sync/import';
   
   // Try to get event ID from URL
   const urlMatch = window.location.pathname.match(/\/e\/([^\/]+)/);
@@ -12,7 +12,7 @@
   }
   const eventSlug = urlMatch[1];
   
-  console.log('[Cosign] Starting guest extraction for event:', eventSlug);
+  console.log('[Partiful Cohost] Starting guest extraction for event:', eventSlug);
   
   // Strategy 1: Intercept fetch to find API responses
   // We'll look for guest data in window.__NEXT_DATA__ or intercept XHR
@@ -24,11 +24,11 @@
   if (nextData) {
     try {
       const data = JSON.parse(nextData.textContent);
-      console.log('[Cosign] Found Next.js data:', data);
+      console.log('[Partiful Cohost] Found Next.js data:', data);
       // Navigate to find guests in the data structure
       // This path may vary - need to inspect actual Partiful pages
-    } catch (e) {
-      console.log('[Cosign] Could not parse Next.js data');
+    } catch {
+      console.log('[Partiful Cohost] Could not parse Next.js data');
     }
   }
   
@@ -83,25 +83,25 @@
     return;
   }
   
-  console.log('[Cosign] Extracted guests:', guests);
+  console.log('[Partiful Cohost] Extracted guests:', guests);
   
-  // Prompt for event_id in Cosign
+  // Prompt for event_id in Partiful Cohost
   const eventId = prompt(
     `Found ${guests.length} guests!\n\n` +
-    'Enter your Cosign event ID to import:'
+    'Enter your Partiful Cohost event ID to import:'
   );
   
   if (!eventId) {
     // Just copy to clipboard instead
     const json = JSON.stringify(guests, null, 2);
     navigator.clipboard.writeText(json);
-    alert(`Copied ${guests.length} guests to clipboard as JSON.\nPaste this in Cosign's import.`);
+    alert(`Copied ${guests.length} guests to clipboard as JSON.\nPaste this in Partiful Cohost's import.`);
     return;
   }
   
-  // Send to Cosign API
+  // Send to Partiful Cohost API
   try {
-    const response = await fetch(COSIGN_API, {
+    const response = await fetch(COHOST_API, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ event_id: eventId, guests }),
@@ -112,7 +112,7 @@
     }
     
     const result = await response.json();
-    alert(`Success! Imported ${result.imported} guests to Cosign.`);
+    alert(`Success! Imported ${result.imported} guests to Partiful Cohost.`);
   } catch (e) {
     alert('Failed to import: ' + e.message + '\n\nGuests copied to clipboard instead.');
     navigator.clipboard.writeText(JSON.stringify(guests, null, 2));
