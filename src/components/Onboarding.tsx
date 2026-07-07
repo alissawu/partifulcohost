@@ -10,11 +10,13 @@ import type { User } from '@supabase/supabase-js'
 type Step = 'auth' | 'link_partiful' | 'choose' | 'join' | 'created'
 
 const PENDING_SIGNUP_KEY = 'cohost_pending_signup'
+const SIGNUP_EXPIRY_MS = 30 * 60 * 1000 // 30 minutes
 
 interface PendingSignup {
   email: string
   password: string
   name: string
+  timestamp: number
 }
 
 export function Onboarding() {
@@ -31,12 +33,19 @@ export function Onboarding() {
 
   useEffect(() => {
     const init = async () => {
-      // Check for pending signup in sessionStorage
+      // Check for pending signup in sessionStorage (with expiry)
       const stored = sessionStorage.getItem(PENDING_SIGNUP_KEY)
       if (stored) {
-        setPendingSignup(JSON.parse(stored))
-        setStep('link_partiful')
-        return
+        const parsed = JSON.parse(stored) as PendingSignup
+        const isExpired = Date.now() - parsed.timestamp > SIGNUP_EXPIRY_MS
+        if (!isExpired) {
+          setPendingSignup(parsed)
+          setStep('link_partiful')
+          return
+        } else {
+          // Clear expired pending signup
+          sessionStorage.removeItem(PENDING_SIGNUP_KEY)
+        }
       }
 
       const { data: { user } } = await supabase.auth.getUser()
@@ -101,8 +110,9 @@ export function Onboarding() {
 
   // Signup continue - don't create account yet, store data and go to Partiful linking
   const handleSignupContinue = (data: { email: string; password: string; name: string }) => {
-    sessionStorage.setItem(PENDING_SIGNUP_KEY, JSON.stringify(data))
-    setPendingSignup(data)
+    const pending: PendingSignup = { ...data, timestamp: Date.now() }
+    sessionStorage.setItem(PENDING_SIGNUP_KEY, JSON.stringify(pending))
+    setPendingSignup(pending)
     setStep('link_partiful')
   }
 

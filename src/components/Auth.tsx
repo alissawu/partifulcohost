@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 
 type Mode = 'login' | 'signup'
@@ -11,6 +11,7 @@ interface AuthProps {
 }
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+const PENDING_SIGNUP_KEY = 'cohost_pending_signup'
 
 export function Auth({ onSuccess, onSignupContinue }: AuthProps) {
   const [mode, setMode] = useState<Mode>('login')
@@ -21,6 +22,11 @@ export function Auth({ onSuccess, onSignupContinue }: AuthProps) {
   const [error, setError] = useState('')
 
   const supabase = createClient()
+
+  // Clear any stale pending signup when landing on auth page
+  useEffect(() => {
+    sessionStorage.removeItem(PENDING_SIGNUP_KEY)
+  }, [])
 
   const validateEmail = (email: string): boolean => {
     return EMAIL_REGEX.test(email)
@@ -40,14 +46,41 @@ export function Auth({ onSuccess, onSignupContinue }: AuthProps) {
 
     try {
       if (mode === 'signup') {
-        // Don't create account yet - just pass data to continue to Partiful linking
+        // Check if email already exists by trying to sign in with wrong password
+        // This is a workaround since Supabase doesn't have a direct "check email exists" API
+        const { error: checkError } = await supabase.auth.signInWithPassword({
+          email,
+          password: '__check_exists__',
+        })
+        
+        // If error is "Invalid login credentials", account exists - switch to login
+        if (checkError?.message?.includes('Invalid login credentials')) {
+          setMode('login')
+          setError('Account already exists. Please log in.')
+          setLoading(false)
+          return
+        }
+        
+        // Otherwise proceed with signup flow
         onSignupContinue({ email, password, name })
       } else {
         const { error: signInError } = await supabase.auth.signInWithPassword({
           email,
           password,
         })
-        if (signInError) throw signInError
+        
+        if (signInError) {
+          // Check if it's a "no account" error and suggest signup
+          if (signInError.message?.includes('Invalid login credentials')) {
+            // Could be wrong password OR no account - show helpful message
+            setError('Invalid email or password. Need an account? Switch to Sign up.')
+          } else {
+            throw signInError
+          }
+          setLoading(false)
+          return
+        }
+        
         onSuccess()
       }
     } catch (err) {
@@ -62,7 +95,7 @@ export function Auth({ onSuccess, onSignupContinue }: AuthProps) {
     <div className="w-full max-w-sm mx-auto">
       <div className="flex gap-2 mb-6">
         <button
-          onClick={() => setMode('login')}
+          onClick={() => { setMode('login'); setError('') }}
           className={`flex-1 py-2 rounded-lg font-medium transition-colors ${
             mode === 'login'
               ? 'bg-[var(--color-accent)] text-white'
@@ -72,7 +105,7 @@ export function Auth({ onSuccess, onSignupContinue }: AuthProps) {
           Log in
         </button>
         <button
-          onClick={() => setMode('signup')}
+          onClick={() => { setMode('signup'); setError('') }}
           className={`flex-1 py-2 rounded-lg font-medium transition-colors ${
             mode === 'signup'
               ? 'bg-[var(--color-accent)] text-white'
