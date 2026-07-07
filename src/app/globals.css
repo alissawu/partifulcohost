@@ -17,16 +17,16 @@
   --color-text-muted: #a1a1a6;
   --color-text-faint: #6b6b70;
   
-  /* Accents - warm coral/orange instead of generic purple */
-  --color-accent: #a78bfa;
-  --color-accent-muted: #8b5cf6;
-  --color-accent-glow: rgba(167, 139, 250, 0.15);
+  /* Accents - purple/violet to match Partiful */
+  --color-accent: #6365C0;
+  --color-accent-muted: #5156AC;
+  --color-accent-glow: rgba(99, 101, 192, 0.2);
   
   /* Status colors */
   --color-approved: #4ade80;
   --color-pending: #fbbf24;
   --color-rejected: #f87171;
-  --color-invited: #a78bfa;
+  --color-invited: #6365C0;
   --color-flagged: #f472b6;
   
   /* Vote colors */

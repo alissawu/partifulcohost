@@ -87,7 +87,7 @@ export function GuestCard({ guest }: Props) {
             className="w-10 h-10 rounded-full object-cover"
           />
         ) : (
-          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-violet-400 to-fuchsia-500 flex items-center justify-center text-sm font-medium text-white">
+          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#6365C0] to-[#73499D] flex items-center justify-center text-sm font-medium text-white">
             {initials}
           </div>
         )}
