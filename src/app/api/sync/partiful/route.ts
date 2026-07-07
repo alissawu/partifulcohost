@@ -81,9 +81,75 @@ export async function POST(request: NextRequest) {
     }
 
     const guests: Array<{ id: string; name: string; status: string; rsvpDate?: string; photo?: string }> = []
+    let usedFirestore = false
 
-    // If we have a token, use Firestore REST API for full names
-    if (token) {
+    // Try public API first - has photos and works for public events
+    let cursor: string | null = null
+    
+    do {
+      const body: PartifulGuestsRequestBody = {
+        data: {
+          params: {
+            eventId: partiful_event_id,
+            includeInvitedGuests: true,
+          },
+          paging: {
+            cursor,
+            maxResults: 500,
+          },
+          userId: null,
+        },
+      }
+
+      const res = await fetch('https://api.partiful.com/getGuests', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Origin': 'https://partiful.com',
+          'Referer': 'https://partiful.com/',
+        },
+        body: JSON.stringify(body),
+      })
+
+      if (!res.ok) {
+        console.log('Public API failed with status:', res.status)
+        break
+      }
+
+      const data = await res.json()
+      const pageGuests = data.result?.data || []
+      
+      for (const g of pageGuests) {
+        // Photo can be an object with size variants or a string URL
+        let photoUrl: string | null = null
+        if (g.user?.photo) {
+          if (typeof g.user.photo === 'string') {
+            photoUrl = g.user.photo
+          } else if (g.user.photo.medium) {
+            photoUrl = g.user.photo.medium
+          } else if (g.user.photo.small) {
+            photoUrl = g.user.photo.small
+          } else if (g.user.photo.large) {
+            photoUrl = g.user.photo.large
+          }
+        }
+        
+        guests.push({
+          id: g.user?.id || g.id,
+          name: g.user?.name || g.name || 'Unknown',
+          status: g.status,
+          rsvpDate: g.rsvpDate,
+          photo: photoUrl || undefined,
+        })
+      }
+      
+      cursor = data.result?.paging?.nextCursor || null
+    } while (cursor)
+
+    // If public API got nothing and we have a token, try Firestore
+    if (guests.length === 0 && token) {
+      console.log('Public API returned no guests, trying Firestore...')
+      usedFirestore = true
       let nextPageToken: string | null = null
       
       do {
@@ -102,7 +168,6 @@ export async function POST(request: NextRequest) {
         if (!res.ok) {
           const text = await res.text()
           console.error('Firestore API error:', res.status, text)
-          // Fall back to public API if Firestore fails
           break
         }
 
@@ -117,37 +182,14 @@ export async function POST(request: NextRequest) {
           const status = extractValue(fields.status) as string || 'PENDING'
           const rsvpDate = extractValue(fields.rsvpDate) as string || null
           
-          // Log first few guests for debugging
-          if (guests.length < 3) {
-            console.log('Guest fields:', JSON.stringify(Object.keys(fields)))
-            console.log('Guest status raw:', fields.status)
-            console.log('Guest user field:', fields.user)
-          }
-          
-          // Try multiple places for photo
-          let photo: string | null = null
-          
-          // Direct photo field on guest
-          if (fields.photo) {
-            photo = extractValue(fields.photo) as string || null
-          }
-          // Photo URL field
-          if (!photo && fields.photoUrl) {
-            photo = extractValue(fields.photoUrl) as string || null
-          }
-          // User object might have photo
-          if (!photo && fields.user) {
-            const user = extractValue(fields.user) as Record<string, unknown> | null
-            if (user?.photo) photo = user.photo as string
-            if (!photo && user?.photoUrl) photo = user.photoUrl as string
-          }
-
+          // Firestore doesn't have photos inline - user field is a reference
+          // We'd need to fetch user docs separately to get photos
           guests.push({
             id: docId,
             name,
             status,
             rsvpDate: rsvpDate || undefined,
-            photo: photo || undefined,
+            photo: undefined,
           })
         }
 
@@ -155,59 +197,8 @@ export async function POST(request: NextRequest) {
       } while (nextPageToken)
     }
 
-    // Fall back to public API if no token or Firestore failed
     if (guests.length === 0) {
-      let cursor: string | null = null
-      
-      do {
-        const body: PartifulGuestsRequestBody = {
-          data: {
-            params: {
-              eventId: partiful_event_id,
-              includeInvitedGuests: true,
-            },
-            paging: {
-              cursor,
-              maxResults: 500,
-            },
-            userId: null,
-          },
-        }
-
-        const res = await fetch('https://api.partiful.com/getGuests', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Origin': 'https://partiful.com',
-            'Referer': 'https://partiful.com/',
-          },
-          body: JSON.stringify(body),
-        })
-
-        if (!res.ok) {
-          console.error('Partiful API error:', res.status)
-          break
-        }
-
-        const data = await res.json()
-        const pageGuests = data.result?.data || []
-        
-        for (const g of pageGuests) {
-          guests.push({
-            id: g.user?.id || g.id,
-            name: g.user?.name || g.name || 'Unknown',
-            status: g.status,
-            rsvpDate: g.rsvpDate,
-            photo: g.user?.photo || null,
-          })
-        }
-        
-        cursor = data.result?.paging?.nextCursor || null
-      } while (cursor)
-    }
-
-    if (guests.length === 0) {
-      return NextResponse.json({ imported: 0, total_from_partiful: 0 })
+      return NextResponse.json({ imported: 0, total_from_partiful: 0, used_firestore: usedFirestore })
     }
 
     const supabase = createServiceClient()
@@ -237,7 +228,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ 
       imported: guestRows.length, 
       total_from_partiful: guests.length,
-      used_firestore: !!token && guests.length > 0,
+      used_firestore: usedFirestore,
     })
   } catch (error) {
     console.error('Sync error:', error)
