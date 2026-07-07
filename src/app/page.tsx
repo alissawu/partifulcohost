@@ -194,7 +194,7 @@ export default function Home() {
                 {hosts.slice(0, 5).map((host) => (
                   <div 
                     key={host.id}
-                    className="w-8 h-8 rounded-full bg-gradient-to-br from-[var(--color-accent)] to-orange-600 flex items-center justify-center text-xs font-medium text-white border-2 border-[var(--color-bg-elevated)]"
+                    className="w-8 h-8 rounded-full bg-gradient-to-br from-violet-400 to-fuchsia-500 flex items-center justify-center text-xs font-medium text-white border-2 border-[var(--color-bg-elevated)]"
                     title={host.name}
                   >
                     {host.name.slice(0, 1).toUpperCase()}

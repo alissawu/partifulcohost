@@ -18,16 +18,16 @@
   --color-text-faint: #6b6b70;
   
   /* Accents - warm coral/orange instead of generic purple */
-  --color-accent: #ff6b4a;
-  --color-accent-muted: #cc5640;
-  --color-accent-glow: rgba(255, 107, 74, 0.15);
+  --color-accent: #a78bfa;
+  --color-accent-muted: #8b5cf6;
+  --color-accent-glow: rgba(167, 139, 250, 0.15);
   
   /* Status colors */
   --color-approved: #4ade80;
   --color-pending: #fbbf24;
   --color-rejected: #f87171;
   --color-invited: #a78bfa;
-  --color-flagged: #ff6b4a;
+  --color-flagged: #f472b6;
   
   /* Vote colors */
   --color-vote-keep: #4ade80;
