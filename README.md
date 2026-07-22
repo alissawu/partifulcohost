@@ -34,12 +34,16 @@ bun dev
 
 ## Hacky Workarounds
 
-**No public API:** Partiful has no public API and no OAuth. To get guest data with real names (not redacted like "Axxxxx Wx"), you need to be authenticated as a host. We built a console command that hosts run on partiful.com - it extracts their Firebase auth token from IndexedDB and sends it to our app. The token is used immediately while fresh to sync the full guest list.
+**No public API:** Partiful has no public API and no OAuth. To get guest data with real names (not redacted like "Axxxxx Wx"), you need to be authenticated as a host. We built a console command (a one-liner that extracts Firebase auth token from IndexedDB) that hosts run in devtools on partiful.com. The command redirects them back to our app with the token, which we use immediately while fresh to query the Firestore REST API for full guest data.
 
-**Host verification:** We verify someone is actually a host by checking their Partiful user ID against the event's ownerIds. The console command captures both their identity and their auth in one step.
+**Host verification:** We verify someone is actually a host by checking their Partiful user ID against the event's ownerIds. The console command captures both their identity and auth in one step.
 
-**Firestore reverse-engineering:** Partiful stores data in Firebase/Firestore with a nested document format. We had to figure out their schema by inspecting network requests - fields like `stringValue`, `mapValue`, `arrayValue` all need recursive extraction. Status strings are also inconsistent (`PENDING_APPROVAL`, `NOT_APPROVED`, `GOING`, etc.) so we normalize everything.
+**Firestore REST API:** The main data source is Partiful's Firestore database, accessed via REST API with the host's Firebase token. The endpoint is `firestore.googleapis.com/v1/projects/getpartiful/databases/(default)/documents/events/{eventId}/guests`. Firestore uses a nested document format where every value is wrapped in type objects (`stringValue`, `mapValue`, `arrayValue`, etc.) that we recursively extract. Status strings are also inconsistent (`PENDING_APPROVAL`, `NOT_APPROVED`, `GOING`, etc.) so we normalize everything.
 
-**Photo extraction:** Guest photos aren't included in the basic guest list response. We call a separate `getUsers` endpoint with the host's auth token to fetch photos for all guests, then merge them with the guest data.
+**Fallback for no token:** If we don't have a host's token, we fall back to the public `getGuests` API. This returns redacted names ("Axxxxx Wx") and only approved guests, but it's better than nothing.
 
-**getGuests quirks:** The `getGuests` endpoint has weird behavior - calling it while authenticated as a host returns a "User is host" error. We work around this by using the Firestore subscription data that hosts already have access to, or by calling getUsers which doesn't have this restriction.
+**Photo extraction:** Guest photos aren't included in the Firestore guest documents. We call a separate `getUsers` endpoint with the host's auth token to fetch photos for all guests, then merge them with the guest data.
+
+**getGuests quirks:** The public `getGuests` endpoint has weird behavior - calling it while authenticated as a host returns a "User is host" error. That's why we use Firestore REST API directly instead.
+
+**Note:** There's a `bookmarklet.js` file in public/ from early prototyping - we ended up using a simpler console command instead.
