@@ -27,17 +27,19 @@ bun dev
 - Tailwind 4 for styling
 
 **Architecture:**
-- `/app/api/sync/partiful` - syncs guests from Partiful's Firestore
+- `/app/api/sync/partiful` - syncs guests from Partiful using host's auth token
 - `/app/api/events` - CRUD for events and access codes
 - `/app/api/votes` - co-host voting system
 - `/app/api/comments` - per-guest discussion threads
 
 ## Hacky Workarounds
 
-**No public API:** Partiful has no public API and no OAuth. We can't just "log in with Partiful" - so we use a bookmarklet that runs in the host's browser while they're already logged into Partiful. The bookmarklet grabs their session context and sends guest data to our app. No credential handling on our side.
+**No public API:** Partiful has no public API and no OAuth. To get guest data with real names (not redacted like "Axxxxx Wx"), you need to be authenticated as a host. We built a console command that hosts run on partiful.com - it extracts their Firebase auth token from IndexedDB and sends it to our app. The token is used immediately while fresh to sync the full guest list.
+
+**Host verification:** We verify someone is actually a host by checking their Partiful user ID against the event's ownerIds. The console command captures both their identity and their auth in one step.
 
 **Firestore reverse-engineering:** Partiful stores data in Firebase/Firestore with a nested document format. We had to figure out their schema by inspecting network requests - fields like `stringValue`, `mapValue`, `arrayValue` all need recursive extraction. Status strings are also inconsistent (`PENDING_APPROVAL`, `NOT_APPROVED`, `GOING`, etc.) so we normalize everything.
 
-**Public guest API:** We discovered their `getGuests` endpoint works without auth for public events and returns ALL statuses - pending, approved, waitlist, rejected. So we only need the bookmarklet once to verify someone is actually a host (checking their user_id against the event's ownerIds). After that, guest syncing works unauthenticated.
+**Photo extraction:** Guest photos aren't included in the basic guest list response. We call a separate `getUsers` endpoint with the host's auth token to fetch photos for all guests, then merge them with the guest data.
 
-**Photo extraction:** Guest photos come from different places depending on RSVP status. For approved guests, the public API has photos. For pending/invited guests, we fall back to the `getUsers` endpoint which requires the host session.
+**getGuests quirks:** The `getGuests` endpoint has weird behavior - calling it while authenticated as a host returns a "User is host" error. We work around this by using the Firestore subscription data that hosts already have access to, or by calling getUsers which doesn't have this restriction.
